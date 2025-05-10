@@ -12,6 +12,7 @@ import PhotosUI
 // MARK: - 数据模型
 struct EmotionEntry: Identifiable, Codable {
     let id: UUID
+    let title: String  // 新增标题字段
     let content: String
     let emotion: EmotionType
     let timestamp: Date
@@ -293,6 +294,7 @@ struct AddEntryView: View {
     @ObservedObject var manager: DiaryManager
     @Environment(\.dismiss) var dismiss
     
+    @State private var title = ""  // 新增标题状态
     @State private var content = ""
     @State private var selectedEmotion: EmotionEntry.EmotionType = .happy
     @State private var selectedImage: UIImage?
@@ -349,9 +351,29 @@ struct AddEntryView: View {
                     }
                 }
                 
-                Section("日记内容") {
-                    TextEditor(text: $content)
-                        .frame(minHeight: 150)
+                // 合并后的标题+正文区域
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        // 标题输入
+                        TextField("输入日记标题", text: $title)
+                            .textFieldStyle(.roundedBorder)
+                        
+                        // 分隔线
+                        Divider()
+                        
+                        // 正文输入
+                        ZStack(alignment: .topLeading) {
+                            if content.isEmpty {
+                                Text("请输入正文")
+                                    .foregroundStyle(.secondary)
+                                    .padding(.top, 8)
+                                    .padding(.leading, 4)
+                            }
+                            
+                            TextEditor(text: $content)
+                                .frame(minHeight: 150)
+                        }
+                    }
                 }
                 
                 Section("添加图片") {
@@ -400,7 +422,7 @@ struct AddEntryView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button("保存") { saveEntry() }
-                        .disabled(content.isEmpty)
+                        .disabled(content.isEmpty || title.isEmpty)  // 同时检查标题和正文是否为空
                 }
             }
             .task(id: photoItem) {
@@ -414,12 +436,13 @@ struct AddEntryView: View {
     private func saveEntry() {
         let newEntry = EmotionEntry(
             id: UUID(),
+            title: title,  // 保存标题
             content: content,
             emotion: selectedEmotion,
-            timestamp: Date(), // 这里会自动记录精确到秒的时间
+            timestamp: Date(),
             imageData: selectedImage?.jpegData(compressionQuality: 0.8),
             customColor: selectedColor,
-            customOpacity: selectedOpacity // 保存透明度
+            customOpacity: selectedOpacity
         )
         manager.saveEntry(newEntry)
         dismiss()
