@@ -271,15 +271,15 @@ struct DetailView: View {
                                     .shadow(color: .primary.opacity(0.1), radius: 6, x: 0, y: 2)
                             )
                         
-                        // 正文后显示所有照片
-                        if let imageDataArray = entry.imageDataArray, imageDataArray.count > 1 {
-                            ForEach(1..<imageDataArray.count, id: \.self) { index in
+                        // 正文后显示所有照片（包含第一张）
+                        if let imageDataArray = entry.imageDataArray {
+                            ForEach(0..<imageDataArray.count, id: \.self) { index in
                                 if let uiImage = UIImage(data: imageDataArray[index]) {
                                     Image(uiImage: uiImage)
                                         .resizable()
                                         .scaledToFit()
                                         .cornerRadius(12)
-                                        .padding(.vertical)
+                                        .padding(.vertical, 8) // 减小垂直间距为8点
                                 }
                             }
                         }
