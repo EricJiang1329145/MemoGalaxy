@@ -154,6 +154,14 @@ struct ContentView: View {
 struct EntryRow: View {
     let entry: EmotionEntry
     
+    // 添加中文日期格式化器
+    private var chineseDateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy年MM月dd日"
+        return formatter
+    }
+    
     var body: some View {
         HStack(alignment: .top) {
             Text(entry.emotion.rawValue)
@@ -167,7 +175,8 @@ struct EntryRow: View {
                 .clipShape(Circle())
             
             VStack(alignment: .leading) {
-                Text(entry.timestamp, style: .date)
+                // 修改时间显示格式
+                Text(chineseDateFormatter.string(from: entry.timestamp))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 
@@ -229,9 +238,10 @@ struct DetailView: View {
                     
                     // 卡片式内容区域
                     VStack(alignment: .leading, spacing: 15) {
-                        Text("日记内容")
-                            .font(.headline)
-                            .foregroundColor(.primary)
+                        // 删除以下标题行
+                        // Text("日记内容")
+                        //    .font(.headline)
+                        //    .foregroundColor(.primary)
                         
                         Text(entry.content)
                             .font(.body)
@@ -270,6 +280,13 @@ struct DetailView: View {
             }
         }
         .navigationTitle("日记详情")
+        .navigationBarTitleDisplayMode(.inline) // 新增这行设置标题显示模式
+        .toolbar {
+            ToolbarItem(placement: .principal) { // 将标题放在导航栏主体位置
+                Text("日记详情")
+                    .font(.headline)
+            }
+        }
         .background(
             (entry.customColor != nil ? 
                 Color(hex: entry.customColor!) : 
