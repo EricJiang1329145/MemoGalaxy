@@ -218,7 +218,7 @@ struct DetailView: View {
                 
                 // 内容卡片
                 VStack(alignment: .leading, spacing: 20) {
-                    HStack {
+                    HStack(alignment: .top) {
                         Text(entry.emotion.rawValue)
                             .font(.system(size: 60))
                             .padding(10)
@@ -229,20 +229,23 @@ struct DetailView: View {
                             )
                             .clipShape(Circle())
                         
-                        // 修改为中文时间格式
-                        Text(chineseDateTimeFormatter.string(from: entry.timestamp))
-                            .foregroundStyle(.secondary)
-                            .font(.footnote)
+                        VStack(alignment: .leading) {
+                            // 新增标题在表情右侧
+                            Text("日记详情")
+                                .font(.system(.title, design: .rounded))
+                                .bold()
+                                .padding(.bottom, 4)
+                            
+                            // 调整时间显示位置
+                            Text(chineseDateTimeFormatter.string(from: entry.timestamp))
+                                .foregroundStyle(.secondary)
+                                .font(.footnote)
+                        }
                     }
                     .padding(.bottom)
                     
                     // 卡片式内容区域
                     VStack(alignment: .leading, spacing: 15) {
-                        // 删除以下标题行
-                        // Text("日记内容")
-                        //    .font(.headline)
-                        //    .foregroundColor(.primary)
-                        
                         Text(entry.content)
                             .font(.body)
                             .padding()
@@ -252,41 +255,20 @@ struct DetailView: View {
                                     .fill(Color(.systemBackground))
                                     .shadow(color: .primary.opacity(0.1), radius: 6, x: 0, y: 2)
                             )
-                        
-                        if let imageData = entry.imageData,
-                           let uiImage = UIImage(data: imageData) {
-                            Text("附加图片")
-                                .font(.headline)
-                                .padding(.top)
-                            
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .scaledToFit()
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.primary.opacity(0.1), lineWidth: 1)
-                                )
-                        }
                     }
-                    .padding()
+                    .padding(20) // 增大外层间距
                     .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color(.systemBackground))
+                        RoundedRectangle(cornerRadius: 24) // 增大圆角半径
+                            .fill(Color(.systemBackground).opacity(0.5)) // 设置半透明
                     )
                     .padding(.horizontal)
                 }
                 .padding(.top, 40)
             }
         }
-        .navigationTitle("日记详情")
-        .navigationBarTitleDisplayMode(.inline) // 新增这行设置标题显示模式
-        .toolbar {
-            ToolbarItem(placement: .principal) { // 将标题放在导航栏主体位置
-                Text("日记详情")
-                    .font(.headline)
-            }
-        }
+        // 移除原有导航栏标题设置
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { /* 移除原有的 ToolbarItem */ }
         .background(
             (entry.customColor != nil ? 
                 Color(hex: entry.customColor!) : 
