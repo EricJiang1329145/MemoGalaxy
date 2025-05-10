@@ -16,7 +16,6 @@ struct EmotionEntry: Identifiable, Codable {
     let content: String
     let emotion: EmotionType
     let timestamp: Date
-    var imageData: Data?
     var customColor: String?
     var customOpacity: Double = 0.8 // 新增透明度字段，默认最不透明
     
@@ -195,11 +194,8 @@ struct EntryRow: View {
                     .padding(.top, 2)
             }
             
-            if entry.imageData != nil {
-                Spacer()
-                Image(systemName: "photo")
-                    .foregroundStyle(.blue)
-            }
+            // 移除原图片存在性判断及图标
+            // if entry.imageData != nil { ... }
         }
     }
 }
@@ -376,19 +372,8 @@ struct AddEntryView: View {
                     }
                 }
                 
-                Section("添加图片") {
-                    PhotosPicker(selection: $photoItem, matching: .images) {
-                        Label(selectedImage == nil ? "选择照片" : "更换照片", systemImage: "photo")
-                    }
-                    
-                    if let selectedImage {
-                        Image(uiImage: selectedImage)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxHeight: 200)
-                            .cornerRadius(8)
-                    }
-                }
+                // 移除原 "添加图片" Section
+                // Section("添加图片") { ... }
                 
                 Section("选择透明度") {
                     HStack {
@@ -440,7 +425,7 @@ struct AddEntryView: View {
             content: content,
             emotion: selectedEmotion,
             timestamp: Date(),
-            imageData: selectedImage?.jpegData(compressionQuality: 0.8),
+            // 移除 imageData 参数
             customColor: selectedColor,
             customOpacity: selectedOpacity
         )
