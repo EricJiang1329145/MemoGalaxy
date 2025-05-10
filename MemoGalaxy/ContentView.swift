@@ -39,16 +39,39 @@ struct EmotionEntry: Identifiable, Codable {
 // MARK: - 数据管理
 class DiaryManager: ObservableObject {
     @Published var entries: [EmotionEntry] = []
-    private let saveKey = "MemoGalaxyData"
+    private let saveDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
     
     init() {
         loadData()
     }
     
     private func loadData() {
-        if let data = UserDefaults.standard.data(forKey: saveKey),
-           let decoded = try? JSONDecoder().decode([EmotionEntry].self, from: data) {
-            entries = decoded
+        do {
+            let fileURLs = try FileManager.default.contentsOfDirectory(at: saveDirectory, 
+                                                                       includingPropertiesForKeys: nil)
+            entries = fileURLs
+                .filter { $0.pathExtension == "json" }
+                .compactMap { url -> EmotionEntry? in
+                    guard let data = try? Data(contentsOf: url) else { return nil }
+                    return try? JSONDecoder().decode(EmotionEntry.self, from: data)
+                }
+                .sorted { $0.timestamp > $1.timestamp }
+        } catch {
+            print("加载数据失败: \(error)")
+        }
+    }
+    
+    private func saveData() {
+        entries.forEach { entry in
+            let fileURL = saveDirectory
+                .appendingPathComponent(entry.id.uuidString)
+                .appendingPathExtension("json")
+            do {
+                let data = try JSONEncoder().encode(entry)
+                try data.write(to: fileURL)
+            } catch {
+                print("保存失败: \(error)")
+            }
         }
     }
     
@@ -60,12 +83,6 @@ class DiaryManager: ObservableObject {
     func deleteEntry(_ entry: EmotionEntry) {
         entries.removeAll { $0.id == entry.id }
         saveData()
-    }
-    
-    private func saveData() {
-        if let encoded = try? JSONEncoder().encode(entries) {
-            UserDefaults.standard.set(encoded, forKey: saveKey)
-        }
     }
 }
 
