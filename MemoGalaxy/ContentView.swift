@@ -337,6 +337,7 @@ struct AddEntryView: View {
 }
 
 struct ColorCircle: View {
+    @Environment(\.colorScheme) var colorScheme // 新增环境变量
     let color: String
     let colorName: String
     let isSelected: Bool
@@ -349,23 +350,27 @@ struct ColorCircle: View {
                 .animation(.easeInOut(duration: 0.1), value: isSelected)
             
             if isSelected {
-                // 修改为底部弹出式提示
                 VStack(spacing: 4) {
                     Text(colorName)
                         .font(.caption2)
                         .padding(6)
                         .background(
                             Capsule()
-                                .fill(Color.black.opacity(0.7))
+                                .fill(colorScheme == .dark ? 
+                                    Color.black.opacity(0.7) : 
+                                    Color.white.opacity(0.9)) // 适配深浅模式
                                 .shadow(radius: 2)
                         )
-                        .foregroundColor(.white)
-                        .offset(y: 32) // 移动到底部
+                        .foregroundColor(colorScheme == .dark ? 
+                                       .white : .black) // 文字颜色适配
+                        .offset(y: 32)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     
                     Image(systemName: "arrowtriangle.down.fill")
                         .font(.system(size: 8))
-                        .foregroundColor(.black.opacity(0.7))
+                        .foregroundColor(colorScheme == .dark ? 
+                                       Color.black.opacity(0.7) : 
+                                       Color.white.opacity(0.9)) // 箭头颜色适配
                         .offset(y: 24)
                 }
             }
