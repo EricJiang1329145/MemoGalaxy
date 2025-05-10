@@ -338,25 +338,36 @@ struct AddEntryView: View {
 
 struct ColorCircle: View {
     let color: String
-    let colorName: String // 新增颜色名称参数
+    let colorName: String
     let isSelected: Bool
     
     var body: some View {
         ZStack {
             Circle()
                 .fill(Color(hex: color))
-                .frame(width: isSelected ? 48 : 44, height: isSelected ? 48 : 44) // 选中时放大4pt
-                .animation(.easeInOut(duration: 0.1), value: isSelected) // 大小变化动画
-                
+                .frame(width: isSelected ? 48 : 44, height: isSelected ? 48 : 44)
+                .animation(.easeInOut(duration: 0.1), value: isSelected)
+            
             if isSelected {
-                Text(colorName)
-                    .font(.caption2)
-                    .padding(4)
-                    .background(.black.opacity(0.7))
-                    .foregroundColor(.white)
-                    .cornerRadius(4)
-                    .offset(y: -32) // 定位到圆圈上方
-                    .transition(.opacity.combined(with: .scale(scale: 0.8))) // 淡入+缩放过渡
+                // 修改为底部弹出式提示
+                VStack(spacing: 4) {
+                    Text(colorName)
+                        .font(.caption2)
+                        .padding(6)
+                        .background(
+                            Capsule()
+                                .fill(Color.black.opacity(0.7))
+                                .shadow(radius: 2)
+                        )
+                        .foregroundColor(.white)
+                        .offset(y: 32) // 移动到底部
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    
+                    Image(systemName: "arrowtriangle.down.fill")
+                        .font(.system(size: 8))
+                        .foregroundColor(.black.opacity(0.7))
+                        .offset(y: 24)
+                }
             }
         }
     }
