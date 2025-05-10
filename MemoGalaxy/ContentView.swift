@@ -192,66 +192,46 @@ struct EntryRow: View {
     @State private var isTapped = false
     
     var body: some View {
-        ZStack(alignment: .trailing) {  // 保持右对齐布局
-            // 右侧渐变背景图片（取消方框限制）
+        HStack(alignment: .top) {
+            Text(entry.emotion)
+                .font(.system(size: 40, design: .default))
+                .padding(5)
+                .background(
+                    // 改为从字典获取颜色，无匹配时使用默认灰色
+                    entry.customColor != nil 
+                        ? Color(hex: entry.customColor!).opacity(entry.customOpacity) 
+                        : (emojiToColorMap[entry.emotion] ?? .gray).opacity(entry.customOpacity)
+                )
+                .clipShape(Circle())
+                .scaleEffect(isTapped ? 1.1 : 1)
+                .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isTapped)
+                .onTapGesture {
+                    isTapped.toggle()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        isTapped = false
+                    }
+                }
+            
+            VStack(alignment: .leading) {
+                // 修改时间显示格式
+                Text(DateFormatter.chineseDate.string(from: entry.timestamp))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                
+                Text(entry.content)
+                    .lineLimit(2)
+                    .padding(.top, 2)
+            }
+            
             if let imageDataArray = entry.imageDataArray, let firstImageData = imageDataArray.first, let uiImage = UIImage(data: firstImageData) {
                 Image(uiImage: uiImage)
                     .resizable()
-                    .scaledToFill()  // 保持填充模式
-                    .frame(width: 120, height: 80)  // 维持覆盖区域
-                    .mask(  // 保留渐变效果
-                        LinearGradient(
-                            gradient: Gradient(colors: [.black.opacity(1), .black.opacity(0)]),
-                            startPoint: .trailing,
-                            endPoint: .center
-                        )
-                    )
-                    .offset(x: 20)  // 保持右偏移
-                    // 移除原有的.clipped()和.cornerRadius()修饰符，取消方框限制
-            }
-            
-            // 原有前景内容保持不变
-            HStack(alignment: .top) {
-                Text(entry.emotion)
-                    .font(.system(size: 40, design: .default))
-                    .padding(5)
-                    .background(
-                        entry.customColor != nil 
-                            ? Color(hex: entry.customColor!).opacity(entry.customOpacity) 
-                            : (emojiToColorMap[entry.emotion] ?? .gray).opacity(entry.customOpacity)
-                    )
-                    .clipShape(Circle())
-                    .scaleEffect(isTapped ? 1.1 : 1)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isTapped)
-                    .onTapGesture {
-                        isTapped.toggle()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            isTapped = false
-                        }
-                    }
-                
-                VStack(alignment: .leading) {
-                    Text(DateFormatter.chineseDate.string(from: entry.timestamp))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    
-                    Text(entry.content)
-                        .lineLimit(2)
-                        .padding(.top, 2)
-                }
-                
-                // 隐藏原有的图片缩略图（已移至背景层）
-                if false {  // 通过条件判断临时隐藏原图片显示
-                    Image(uiImage: UIImage())  // 占位保持布局稳定
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 60, height: 60)
-                        .cornerRadius(8)
-                        .clipped()
-                }
+                    .scaledToFill()
+                    .frame(width: 60, height: 60)
+                    .cornerRadius(8)
+                    .clipped()
             }
         }
-        .frame(height: 80)
     }
 }
 
@@ -424,9 +404,10 @@ struct AddEntryView: View {
                     TextField("输入任意emoji", text: $selectedEmoji)
                         .textFieldStyle(.roundedBorder)
                         .font(.largeTitle)
-                        // 修复iOS 17弃用警告：使用双参数闭包
-                        .onChange(of: selectedEmoji) { oldValue, newValue in
+                        // 限制只能输入1个emoji
+                        .onChange(of: selectedEmoji) { newValue in
                             if newValue.count > 1 {
+                                // 截断为第一个字符（支持大多数emoji）
                                 selectedEmoji = String(newValue.prefix(1))
                             }
                         }
@@ -514,6 +495,23 @@ struct AddEntryView: View {
                         matching: .images,
                         photoLibrary: .shared()
                     )
+                    // 适配iOS 17+的onChange新语法（接受新旧值参数）
+                    .onChange(of: photoItems) { oldItems, newItems in
+                        Task {
+                            var loadedImages: [UIImage] = []
+                            for item in newItems {
+                                // 加载图片数据并转换为UIImage
+                                if let data = try? await item.loadTransferable(type: Data.self),
+                                   let image = UIImage(data: data) {
+                                    loadedImages.append(image)
+                                }
+                            }
+                            // 主线程更新selectedImages
+                            await MainActor.run {
+                                selectedImages = loadedImages
+                            }
+                        }
+                    }
                     
                     if !selectedImages.isEmpty {
                         ScrollView(.horizontal) {
