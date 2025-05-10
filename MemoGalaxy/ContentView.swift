@@ -129,58 +129,69 @@ struct ContentView: View {
     @StateObject private var manager = DiaryManager()
     @State private var showingAddView = false
     @State private var entryToDelete: EmotionEntry?  // 新增删除状态跟踪
+    @State private var isLoading = true  // 新增加载状态
     
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(manager.entries) { entry in
-                    NavigationLink(destination: DetailView(entry: entry)) {
-                        EntryRow(entry: entry)
-                    }
-                    .swipeActions {
-                        Button(role: .destructive) {
-                            entryToDelete = entry  // 改为触发确认对话框
-                        } label: {
-                            Label("删除", systemImage: "trash")
+            Group {
+                if isLoading {
+                    ProgressView("加载日记中...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        ForEach(manager.entries) { entry in
+                            NavigationLink(destination: DetailView(entry: entry)) {
+                                EntryRow(entry: entry)
+                            }
+                            .swipeActions {
+                                Button(role: .destructive) {
+                                    entryToDelete = entry  // 改为触发确认对话框
+                                } label: {
+                                    Label("删除", systemImage: "trash")
+                                }
+                            }
                         }
                     }
+                    .overlay {
+                        if manager.entries.isEmpty {
+                            ContentUnavailableView(
+                                "开启你的星云之旅",
+                                systemImage: "moon.stars",
+                                description: Text("点击右下角的+号记录你的心情日记")
+                            )
+                        }
+                    }
+                    .confirmationDialog(
+                        "确认删除",
+                        isPresented: .constant(entryToDelete != nil),
+                        presenting: entryToDelete
+                    ) { entry in
+                        Button("删除", role: .destructive) {
+                            manager.deleteEntry(entry)
+                            entryToDelete = nil
+                        }
+                        Button("取消", role: .cancel) {
+                            entryToDelete = nil
+                        }
+                    } message: { entry in
+                        Text("确定要永久删除\(entry.timestamp.formatted(date: .abbreviated, time: .omitted))的日记吗？")
+                    }
+                    .navigationTitle("MemoGalaxy 🌌")
+                    .toolbar {
+                        Button {
+                            showingAddView = true
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                        }
+                    }
+                    .sheet(isPresented: $showingAddView) {
+                        AddEntryView(manager: manager)
+                    }
                 }
             }
-            .overlay {
-                if manager.entries.isEmpty {
-                    ContentUnavailableView(
-                        "开启你的星云之旅",
-                        systemImage: "moon.stars",
-                        description: Text("点击右下角的+号记录你的心情日记")
-                    )
-                }
-            }
-            .confirmationDialog(
-                "确认删除",
-                isPresented: .constant(entryToDelete != nil),
-                presenting: entryToDelete
-            ) { entry in
-                Button("删除", role: .destructive) {
-                    manager.deleteEntry(entry)
-                    entryToDelete = nil
-                }
-                Button("取消", role: .cancel) {
-                    entryToDelete = nil
-                }
-            } message: { entry in
-                Text("确定要永久删除\(entry.timestamp.formatted(date: .abbreviated, time: .omitted))的日记吗？")
-            }
-            .navigationTitle("MemoGalaxy 🌌")
-            .toolbar {
-                Button {
-                    showingAddView = true
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title2)
-                }
-            }
-            .sheet(isPresented: $showingAddView) {
-                AddEntryView(manager: manager)
+            .onReceive(manager.$entries) { _ in
+                isLoading = false  // 数据加载完成后隐藏加载提示
             }
         }
     }
@@ -392,6 +403,7 @@ struct AddEntryView: View {
     @State private var selectedImages: [UIImage] = []
     @State private var selectedColor: String?
     @State private var selectedOpacity: Double = 0.8
+    @State private var imageCompression: Double = 0.8  // 新增压缩质量状态
     
     // 常用emoji快捷选项（可根据需求扩展）
     private let commonEmojis = ["😊", "😢", "😠", "🥰", "😌", "😲", "😴", "🎉", "🤔", "🙏"]
@@ -404,10 +416,9 @@ struct AddEntryView: View {
                     TextField("输入任意emoji", text: $selectedEmoji)
                         .textFieldStyle(.roundedBorder)
                         .font(.largeTitle)
-                        // 限制只能输入1个emoji
-                        .onChange(of: selectedEmoji) { newValue in
+                        // 限制只能输入1个emoji（适配iOS 17+双参数闭包）
+                        .onChange(of: selectedEmoji) { oldValue, newValue in  // 修改此处：添加旧值参数
                             if newValue.count > 1 {
-                                // 截断为第一个字符（支持大多数emoji）
                                 selectedEmoji = String(newValue.prefix(1))
                             }
                         }
@@ -441,26 +452,44 @@ struct AddEntryView: View {
                             
                             // 传递颜色名称给ColorCircle
                             ForEach(presetColors, id: \.1) { name, hex in
-                                ColorCircle(
-                                    color: hex,
-                                    colorName: name,
-                                    isSelected: selectedColor == hex
-                                )
-                                // 新增按压动画
-                                .scaleEffect(selectedColor == hex ? 1.05 : 1)  // 选中时微放大
-                                .animation(
-                                    .spring(response: 0.3, dampingFraction: 0.7),
-                                    value: selectedColor
-                                )
-                                .onTapGesture {
-                                    withAnimation {
-                                        selectedColor = hex  // 动画包裹颜色选择
+                                VStack(spacing: 4) {
+                                    ColorCircle(
+                                        color: hex,
+                                        colorName: name,
+                                        isSelected: selectedColor == hex
+                                    )
+                                    .scaleEffect(selectedColor == hex ? 1.05 : 1)
+                                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedColor)
+                                    .onTapGesture {
+                                        withAnimation {
+                                            selectedColor = hex
+                                        }
                                     }
+                                    
+                                    Text(name)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
                                 }
                             }
                         }
                         .padding(.vertical, 8)
                     }
+                }
+                
+                // 新增图片压缩质量设置区域
+                Section("图片设置") {
+                    HStack {
+                        Text("图片质量")
+                        Slider(
+                            value: $imageCompression,
+                            in: 0.1...1,
+                            step: 0.1
+                        )
+                        Text(String(format: "%.1f", imageCompression))
+                    }
+                    Text("1.0为无损质量，0.1为高度压缩（文件更小）")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 
                 // 合并后的标题+正文区域
@@ -567,12 +596,14 @@ struct AddEntryView: View {
     }
     
     private func saveEntry() {
-        let imageDataArray = selectedImages.compactMap { $0.jpegData(compressionQuality: 0.8) }
+        let imageDataArray = selectedImages.compactMap { 
+            $0.jpegData(compressionQuality: imageCompression)  // 使用用户选择的压缩质量
+        }
         let newEntry = EmotionEntry(
             id: UUID(),
             title: title,
             content: content,
-            emotion: selectedEmoji,  // 存储输入的emoji字符串
+            emotion: selectedEmoji,
             timestamp: Date(),
             imageDataArray: imageDataArray,
             customColor: selectedColor,
