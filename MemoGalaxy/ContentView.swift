@@ -9,12 +9,26 @@
 import SwiftUI
 import PhotosUI
 
+// 新增emoji到颜色的映射字典（覆盖常用emoji）
+private let emojiToColorMap: [String: Color] = [
+    "😊": .yellow,    // 开心
+    "😢": .blue,      // 悲伤
+    "😠": .red,       // 愤怒
+    "🥰": .pink,      // 喜爱
+    "😌": .mint,      // 平静
+    "😲": .orange,    // 惊讶
+    "😴": .gray,      // 无聊
+    "🎉": .purple,    // 兴奋
+    "🤔": .indigo,    // 思考
+    "🙏": .green      // 感恩
+]
+
 // MARK: - 数据模型
 struct EmotionEntry: Identifiable, Codable {
     let id: UUID
     let title: String  // 新增标题字段
     let content: String
-    let emotion: EmotionType
+    let emotion: String  // 改为直接存储emoji字符串
     let timestamp: Date
     let imageDataArray: [Data]? // 修改为多张图片数据数组
     var customColor: String?
@@ -175,28 +189,26 @@ struct ContentView: View {
 // MARK: - 列表项组件
 struct EntryRow: View {
     let entry: EmotionEntry
-    @State private var isTapped = false  // 新增动画状态
+    @State private var isTapped = false
     
     var body: some View {
         HStack(alignment: .top) {
-            Text(entry.emotion.rawValue)
-                .font(.system(size: 40, design: .default))  // 默认使用系统emoji风格
-                // 或强制使用特定风格
-                // .font(.system(size: 40, design: .rounded))  // 圆润风格
-                // .font(.system(size: 40, design: .monospaced))  // 等宽风格
+            Text(entry.emotion)
+                .font(.system(size: 40, design: .default))
                 .padding(5)
                 .background(
+                    // 改为从字典获取颜色，无匹配时使用默认灰色
                     entry.customColor != nil 
                         ? Color(hex: entry.customColor!).opacity(entry.customOpacity) 
-                        : entry.emotion.color.opacity(entry.customOpacity)
+                        : (emojiToColorMap[entry.emotion] ?? .gray).opacity(entry.customOpacity)
                 )
                 .clipShape(Circle())
-                .scaleEffect(isTapped ? 1.2 : 1)  // 缩放动画
-                .animation(.spring(response: 0.3, dampingFraction: 0.5), value: isTapped)
+                .scaleEffect(isTapped ? 1.1 : 1)
+                .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isTapped)
                 .onTapGesture {
-                    isTapped.toggle()  // 点击触发动画
+                    isTapped.toggle()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        isTapped = false  // 自动恢复
+                        isTapped = false
                     }
                 }
             
@@ -238,25 +250,24 @@ struct DetailView: View {
     var body: some View {
         ScrollView {
             ZStack {
-                // 主题色全屏背景
+                // 主题色全屏背景（修复颜色获取）
                 (entry.customColor != nil ? 
                     Color(hex: entry.customColor!) : 
-                    entry.emotion.color)
+                    (emojiToColorMap[entry.emotion] ?? .gray))  // 从字典获取颜色
                 .opacity(0.1)
                 .edgesIgnoringSafeArea(.all)
                 
                 // 内容卡片
                 VStack(alignment: .leading, spacing: 20) {
                     HStack(alignment: .top) {
-                        Text(entry.emotion.rawValue)
+                        Text(entry.emotion)  // 已改为直接显示字符串
                             .font(.system(size: 60, weight: .bold))
                             .padding(10)
                             .background(
-                                // 添加渐变背景
                                 LinearGradient(
                                     gradient: Gradient(colors: [
-                                        entry.customColor != nil ? Color(hex: entry.customColor!) : entry.emotion.color,
-                                        entry.customColor != nil ? Color(hex: entry.customColor!).opacity(0.7) : entry.emotion.color.opacity(0.7)
+                                        entry.customColor != nil ? Color(hex: entry.customColor!) : (emojiToColorMap[entry.emotion] ?? .gray),  // 修复颜色
+                                        entry.customColor != nil ? Color(hex: entry.customColor!).opacity(0.7) : (emojiToColorMap[entry.emotion] ?? .gray).opacity(0.7)  // 修复颜色
                                     ]),
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -330,9 +341,10 @@ struct DetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { /* 移除原有的 ToolbarItem */ }
         .background(
+            // 修复此处：使用emojiToColorMap替代emotion.color
             (entry.customColor != nil ? 
                 Color(hex: entry.customColor!) : 
-                entry.emotion.color)
+                (emojiToColorMap[entry.emotion] ?? .gray))  // 从字典获取颜色
                 .opacity(0.05)
                 .edgesIgnoringSafeArea(.all)
         )
@@ -373,27 +385,42 @@ struct AddEntryView: View {
     @ObservedObject var manager: DiaryManager
     @Environment(\.dismiss) var dismiss
     
-    @State private var title = ""  // 新增标题状态
+    @State private var title = ""
     @State private var content = ""
-    @State private var selectedEmotion: EmotionEntry.EmotionType = .happy
-    @State private var selectedImage: UIImage?
-    @State private var photoItems: [PhotosPickerItem] = [] // 存储多个图片选择项
-    @State private var selectedImages: [UIImage] = [] // 存储多个选中的图片
-    // 新增 selectedColor 变量
+    @State private var selectedEmoji = "😊"  // 默认emoji
+    @State private var photoItems: [PhotosPickerItem] = []
+    @State private var selectedImages: [UIImage] = []
     @State private var selectedColor: String?
     @State private var selectedOpacity: Double = 0.8
+    
+    // 常用emoji快捷选项（可根据需求扩展）
+    private let commonEmojis = ["😊", "😢", "😠", "🥰", "😌", "😲", "😴", "🎉", "🤔", "🙏"]
     
     var body: some View {
         NavigationStack {
             Form {
                 Section("你的心情") {
-                    Picker("选择情绪", selection: $selectedEmotion) {
-                        ForEach(EmotionEntry.EmotionType.allCases, id: \.self) {
-                            Text($0.rawValue).tag($0)
+                    // 新增emoji输入框
+                    TextField("输入任意emoji", text: $selectedEmoji)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.largeTitle)  // 让输入的emoji更明显
+                    
+                    // 常用emoji快捷选择
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 12) {
+                            ForEach(commonEmojis, id: \.self) { emoji in
+                                Text(emoji)
+                                    .font(.title)
+                                    .padding(8)
+                                    .background(.thinMaterial)
+                                    .cornerRadius(8)
+                                    .onTapGesture {
+                                        selectedEmoji = emoji  // 点击快捷选择
+                                    }
+                            }
                         }
                     }
-                    .pickerStyle(.segmented)
-                    .padding(.vertical)
+                    .padding(.top, 8)
                 }
                 
                 Section("选择主题颜色") {
@@ -490,12 +517,12 @@ struct AddEntryView: View {
                     
                     HStack {
                         Text("预览：")
-                        // 实时预览颜色+透明度效果
+                        // 实时预览颜色+透明度效果（修复变量名）
                         Circle()
                             .fill(
                                 selectedColor != nil 
                                     ? Color(hex: selectedColor!) 
-                                    : selectedEmotion.color
+                                    : (emojiToColorMap[selectedEmoji] ?? .gray)  // 使用selectedEmoji获取颜色
                             )
                             .frame(width: 44, height: 44)
                             .opacity(selectedOpacity)
@@ -509,16 +536,7 @@ struct AddEntryView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button("保存") { saveEntry() }
-                        .disabled(content.isEmpty || title.isEmpty)  // 同时检查标题和正文是否为空
-                }
-            }
-            .task(id: photoItems) {
-                selectedImages.removeAll()
-                for item in photoItems {
-                    if let data = try? await item.loadTransferable(type: Data.self),
-                       let image = UIImage(data: data) {
-                        selectedImages.append(image)
-                    }
+                        .disabled(title.isEmpty || content.isEmpty)
                 }
             }
         }
@@ -530,9 +548,9 @@ struct AddEntryView: View {
             id: UUID(),
             title: title,
             content: content,
-            emotion: selectedEmotion,
+            emotion: selectedEmoji,  // 存储输入的emoji字符串
             timestamp: Date(),
-            imageDataArray: imageDataArray.isEmpty ? nil : imageDataArray,
+            imageDataArray: imageDataArray,
             customColor: selectedColor,
             customOpacity: selectedOpacity
         )
