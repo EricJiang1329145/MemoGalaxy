@@ -48,18 +48,27 @@ class DiaryManager: ObservableObject {
     }
     
     private func loadData() {
-        do {
-            let fileURLs = try FileManager.default.contentsOfDirectory(at: saveDirectory, 
-                                                                       includingPropertiesForKeys: nil)
-            entries = fileURLs
-                .filter { $0.pathExtension == "json" }
-                .compactMap { url -> EmotionEntry? in
-                    guard let data = try? Data(contentsOf: url) else { return nil }
-                    return try? JSONDecoder().decode(EmotionEntry.self, from: data)
+        // 使用后台队列执行文件操作
+        DispatchQueue.global().async { [weak self] in
+            guard let self = self else { return }
+            do {
+                let fileURLs = try FileManager.default.contentsOfDirectory(at: self.saveDirectory, 
+                                                                           includingPropertiesForKeys: nil)
+                let loadedEntries = fileURLs
+                    .filter { $0.pathExtension == "json" }
+                    .compactMap { url -> EmotionEntry? in
+                        guard let data = try? Data(contentsOf: url) else { return nil }
+                        return try? JSONDecoder().decode(EmotionEntry.self, from: data)
+                    }
+                    .sorted { $0.timestamp > $1.timestamp }
+                
+                // 回到主线程更新@Published属性
+                DispatchQueue.main.async {
+                    self.entries = loadedEntries
                 }
-                .sorted { $0.timestamp > $1.timestamp }
-        } catch {
-            print("加载数据失败: \(error)")
+            } catch {
+                print("加载数据失败: \(error)")
+            }
         }
     }
     
