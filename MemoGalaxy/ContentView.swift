@@ -300,10 +300,31 @@ struct DetailView: View {
 // MARK: - 添加新日记
 // 在合适的位置添加预设颜色数组
 let presetColors: [(String, String)] = [
+    // 新增赛车主题色
+    ("法拉利红", "#FF2800"),     // Scuderia Ferrari Red
+    ("迈凯轮橙", "#FF8700"),     // McLaren Papaya Orange
+    ("梅赛德斯银", "#00D2BE"),   // Mercedes-AMG Petronas Silver
+    ("红牛蓝", "#0600EF"),       // Red Bull Racing Blue
+    
+    // 新增EVA主题色
+    ("EVA初号机紫", "#5F3D7A"), // Evangelion Unit-01 Purple 
+    ("EVA零号机黄", "#FFD700"), // Evangelion Unit-00 Yellow
+    ("EVA二号机红", "#C41E3A"), // Evangelion Unit-02 Red
+    ("NERV标志橙", "#FF6600"),  // NERV Organization Orange
+    
+    // 保留现有颜色
+    ("初音绿", "#39C5BB"),
+    ("克莱因蓝", "#002FA7"),
+    ("蒂芙尼蓝", "#81D8D0"),
+    ("长春花蓝", "#6667AB"),
+    ("马尔斯绿", "#008C8C"),
+    ("勃艮第红", "#900020"),
+    ("波尔多红", "#5D1F1C"),
+    ("爱马仕橙", "#E8590C"),
+    // 原有保留颜色
     ("红色", "#FF0000"),
-    ("绿色", "#00FF00"),
-    ("蓝色", "#0000FF"),
-    // 可以根据需要添加更多预设颜色
+    ("绿色", "#00FF00"), 
+    ("蓝色", "#0000FF")
 ]
 
 struct AddEntryView: View {
@@ -477,11 +498,17 @@ struct ColorCircle: View {
     let isSelected: Bool
     
     var body: some View {
+        // 修改选中状态样式
         ZStack {
+            Circle()
+                .stroke(isSelected ? Color.white : Color.clear, lineWidth: 3)
+                .frame(width: 54, height: 54)
+            
             Circle()
                 .fill(Color(hex: color))
                 .frame(width: isSelected ? 48 : 44, height: isSelected ? 48 : 44)
-                .animation(.easeInOut(duration: 0.1), value: isSelected)
+                .shadow(color: .primary.opacity(0.2), radius: isSelected ? 8 : 4, x: 0, y: 2)
+                .animation(.spring(), value: isSelected)
             
             if isSelected {
                 VStack(spacing: 4) {
