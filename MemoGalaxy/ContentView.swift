@@ -16,7 +16,7 @@ struct EmotionEntry: Identifiable, Codable {
     let content: String
     let emotion: EmotionType
     let timestamp: Date
-    let imageData: Data? // 新增图片数据字段
+    let imageDataArray: [Data]? // 修改为多张图片数据数组
     var customColor: String?
     var customOpacity: Double = 0.8 // 新增透明度字段，默认最不透明
     
@@ -187,7 +187,7 @@ struct EntryRow: View {
                     .padding(.top, 2)
             }
             
-            if let imageData = entry.imageData, let uiImage = UIImage(data: imageData) {
+            if let imageDataArray = entry.imageDataArray, let firstImageData = imageDataArray.first, let uiImage = UIImage(data: firstImageData) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
@@ -252,12 +252,16 @@ struct DetailView: View {
                     // 卡片式内容区域
                     VStack(alignment: .leading, spacing: 15) {
                         // 添加图片显示（在正文上方）
-                        if let imageData = entry.imageData, let uiImage = UIImage(data: imageData) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .scaledToFit()
-                                .cornerRadius(12)
-                                .padding(.bottom)
+                        if let imageDataArray = entry.imageDataArray {
+                            ForEach(imageDataArray.indices, id: \.self) { index in
+                                if let uiImage = UIImage(data: imageDataArray[index]) {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .cornerRadius(12)
+                                        .padding(.bottom)
+                                }
+                            }
                         }
                         
                         Text(entry.content)
@@ -294,6 +298,14 @@ struct DetailView: View {
 }
 
 // MARK: - 添加新日记
+// 在合适的位置添加预设颜色数组
+let presetColors: [(String, String)] = [
+    ("红色", "#FF0000"),
+    ("绿色", "#00FF00"),
+    ("蓝色", "#0000FF"),
+    // 可以根据需要添加更多预设颜色
+]
+
 struct AddEntryView: View {
     @ObservedObject var manager: DiaryManager
     @Environment(\.dismiss) var dismiss
@@ -302,20 +314,11 @@ struct AddEntryView: View {
     @State private var content = ""
     @State private var selectedEmotion: EmotionEntry.EmotionType = .happy
     @State private var selectedImage: UIImage?
-    @State private var photoItem: PhotosPickerItem?
+    @State private var photoItems: [PhotosPickerItem] = [] // 存储多个图片选择项
+    @State private var selectedImages: [UIImage] = [] // 存储多个选中的图片
+    // 新增 selectedColor 变量
     @State private var selectedColor: String?
-    @State private var selectedOpacity: Double = 0.8 // 新增透明度状态
-    
-    let presetColors = [
-        ("初音绿", "#39C5BB"),
-        ("克莱因蓝", "#002FA7"),
-        ("蒂芙尼蓝", "#81D8D0"),
-        ("长春花蓝", "#6667AB"),
-        ("马尔斯绿", "#01847F"),
-        ("勃艮第红", "#900020"),
-        ("波尔多红", "#4C1A24"),
-        ("爱马仕橙", "#E35335")
-    ]
+    @State private var selectedOpacity: Double = 0.8
     
     var body: some View {
         NavigationStack {
@@ -381,14 +384,25 @@ struct AddEntryView: View {
                 }
                 
                 Section("添加图片") {
-                    PhotosPicker("选择照片", selection: $photoItem, matching: .images)
+                    PhotosPicker(
+                        "选择照片",
+                        selection: $photoItems,
+                        matching: .images,
+                        photoLibrary: .shared()
+                    )
                     
-                    if let selectedImage {
-                        Image(uiImage: selectedImage)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(height: 200)
-                            .cornerRadius(12)
+                    if !selectedImages.isEmpty {
+                        ScrollView(.horizontal) {
+                            HStack {
+                                ForEach(selectedImages.indices, id: \.self) { index in
+                                    Image(uiImage: selectedImages[index])
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(height: 100)
+                                        .cornerRadius(12)
+                                }
+                            }
+                        }
                     }
                 }
                 
@@ -427,22 +441,27 @@ struct AddEntryView: View {
                         .disabled(content.isEmpty || title.isEmpty)  // 同时检查标题和正文是否为空
                 }
             }
-            .task(id: photoItem) {
-                if let data = try? await photoItem?.loadTransferable(type: Data.self) {
-                    selectedImage = UIImage(data: data)
+            .task(id: photoItems) {
+                selectedImages.removeAll()
+                for item in photoItems {
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        selectedImages.append(image)
+                    }
                 }
             }
         }
     }
     
     private func saveEntry() {
+        let imageDataArray = selectedImages.compactMap { $0.jpegData(compressionQuality: 0.8) }
         let newEntry = EmotionEntry(
             id: UUID(),
-            title: title,  // 保存标题
+            title: title,
             content: content,
             emotion: selectedEmotion,
             timestamp: Date(),
-            imageData: selectedImage?.jpegData(compressionQuality: 0.8), // 保存压缩后的图片
+            imageDataArray: imageDataArray.isEmpty ? nil : imageDataArray,
             customColor: selectedColor,
             customOpacity: selectedOpacity
         )
