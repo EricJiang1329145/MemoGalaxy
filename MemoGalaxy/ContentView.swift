@@ -16,6 +16,7 @@ struct EmotionEntry: Identifiable, Codable {
     let emotion: EmotionType
     let timestamp: Date
     var imageData: Data?
+    var customColor: String? // 新增自定义颜色字段
     
     enum EmotionType: String, Codable, CaseIterable {
         case happy = "😊"
@@ -132,7 +133,11 @@ struct EntryRow: View {
             Text(entry.emotion.rawValue)
                 .font(.system(size: 40))
                 .padding(5)
-                .background(entry.emotion.color.opacity(0.2))
+                .background(
+                    entry.customColor != nil 
+                        ? Color(hex: entry.customColor!).opacity(0.2) 
+                        : entry.emotion.color.opacity(0.2)
+                )
                 .clipShape(Circle())
             
             VStack(alignment: .leading) {
@@ -164,6 +169,13 @@ struct DetailView: View {
                 HStack {
                     Text(entry.emotion.rawValue)
                         .font(.system(size: 60))
+                        .padding(10)
+                        .background(
+                            entry.customColor != nil 
+                                ? Color(hex: entry.customColor!).opacity(0.2) 
+                                : entry.emotion.color.opacity(0.2)
+                        )
+                        .clipShape(Circle())
                     Text(entry.timestamp.formatted())
                         .foregroundStyle(.secondary)
                 }
@@ -194,6 +206,18 @@ struct AddEntryView: View {
     @State private var selectedEmotion: EmotionEntry.EmotionType = .happy
     @State private var selectedImage: UIImage?
     @State private var photoItem: PhotosPickerItem?
+    @State private var selectedColor: String?
+    
+    let presetColors = [
+        ("初音绿", "#39C5BB"),
+        ("克莱因蓝", "#002FA7"),
+        ("蒂芙尼蓝", "#81D8D0"),
+        ("长春花蓝", "#6667AB"),
+        ("马尔斯绿", "#01847F"),
+        ("勃艮第红", "#900020"),
+        ("波尔多红", "#4C1A24"),
+        ("爱马仕橙", "#E35335")
+    ]
     
     var body: some View {
         NavigationStack {
@@ -226,6 +250,26 @@ struct AddEntryView: View {
                             .cornerRadius(8)
                     }
                 }
+                
+                Section("选择主题颜色") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack {
+                            ForEach(presetColors, id: \.1) { name, hex in
+                                ColorCircle(color: hex, isSelected: selectedColor == hex)
+                                    .onTapGesture {
+                                        selectedColor = hex
+                                    }
+                            }
+                            
+                            ColorPicker("自定义颜色", selection: Binding(
+                                get: { Color(hex: selectedColor ?? "#FFFFFF") },
+                                set: { selectedColor = $0.toHex() }
+                            ))
+                            .frame(width: 44, height: 44)
+                        }
+                        .padding(.vertical, 8)
+                    }
+                }
             }
             .navigationTitle("新日记")
             .toolbar {
@@ -251,10 +295,63 @@ struct AddEntryView: View {
             content: content,
             emotion: selectedEmotion,
             timestamp: Date(),
-            imageData: selectedImage?.jpegData(compressionQuality: 0.8)
+            imageData: selectedImage?.jpegData(compressionQuality: 0.8),
+            customColor: selectedColor // 保存选择的颜色
         )
         manager.saveEntry(newEntry)
         dismiss()
+    }
+}
+
+struct ColorCircle: View {
+    let color: String
+    let isSelected: Bool
+    
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color(hex: color))
+                .frame(width: 44, height: 44)
+            
+            if isSelected {
+                Circle()
+                    .stroke(Color.primary, lineWidth: 2)
+                    .frame(width: 48, height: 48)
+            }
+        }
+    }
+}
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 0, 0, 0)
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+    
+    func toHex() -> String? {
+        guard let components = UIColor(self).cgColor.components else { return nil }
+        let r = Float(components[0])
+        let g = Float(components[1])
+        let b = Float(components[2])
+        return String(format: "#%02lX%02lX%02lX", lroundf(r * 255), lroundf(g * 255), lroundf(b * 255))
     }
 }
 @main
