@@ -135,8 +135,8 @@ struct EntryRow: View {
                 .padding(5)
                 .background(
                     entry.customColor != nil 
-                        ? Color(hex: entry.customColor!).opacity(0.2) 
-                        : entry.emotion.color.opacity(0.2)
+                        ? Color(hex: entry.customColor!) 
+                        : entry.emotion.color
                 )
                 .clipShape(Circle())
             
