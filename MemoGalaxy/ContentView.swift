@@ -251,19 +251,16 @@ struct DetailView: View {
                     
                     // 卡片式内容区域
                     VStack(alignment: .leading, spacing: 15) {
-                        // 添加图片显示（在正文上方）
-                        if let imageDataArray = entry.imageDataArray {
-                            ForEach(imageDataArray.indices, id: \.self) { index in
-                                if let uiImage = UIImage(data: imageDataArray[index]) {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .cornerRadius(12)
-                                        .padding(.bottom)
-                                }
-                            }
+                        // 首端只显示第一张照片
+                        if let firstImageData = entry.imageDataArray?.first, let uiImage = UIImage(data: firstImageData) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFit()
+                                .cornerRadius(12)
+                                .padding(.bottom)
                         }
                         
+                        // 正文内容
                         Text(entry.content)
                             .font(.body)
                             .padding()
@@ -273,6 +270,19 @@ struct DetailView: View {
                                     .fill(Color(.systemBackground))
                                     .shadow(color: .primary.opacity(0.1), radius: 6, x: 0, y: 2)
                             )
+                        
+                        // 正文后显示所有照片
+                        if let imageDataArray = entry.imageDataArray, imageDataArray.count > 1 {
+                            ForEach(1..<imageDataArray.count, id: \.self) { index in
+                                if let uiImage = UIImage(data: imageDataArray[index]) {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .cornerRadius(12)
+                                        .padding(.vertical)
+                                }
+                            }
+                        }
                     }
                     .padding(20) // 增大外层间距
                     .background(
