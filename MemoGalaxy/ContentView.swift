@@ -16,6 +16,7 @@ struct EmotionEntry: Identifiable, Codable {
     let content: String
     let emotion: EmotionType
     let timestamp: Date
+    let imageData: Data? // 新增图片数据字段
     var customColor: String?
     var customOpacity: Double = 0.8 // 新增透明度字段，默认最不透明
     
@@ -163,14 +164,6 @@ struct ContentView: View {
 struct EntryRow: View {
     let entry: EmotionEntry
     
-    // 添加中文日期格式化器
-    private var chineseDateFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "yyyy年MM月dd日"
-        return formatter
-    }
-    
     var body: some View {
         HStack(alignment: .top) {
             Text(entry.emotion.rawValue)
@@ -185,7 +178,7 @@ struct EntryRow: View {
             
             VStack(alignment: .leading) {
                 // 修改时间显示格式
-                Text(chineseDateFormatter.string(from: entry.timestamp))
+                Text(DateFormatter.chineseDate.string(from: entry.timestamp))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 
@@ -194,8 +187,14 @@ struct EntryRow: View {
                     .padding(.top, 2)
             }
             
-            // 移除原图片存在性判断及图标
-            // if entry.imageData != nil { ... }
+            if let imageData = entry.imageData, let uiImage = UIImage(data: imageData) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 60, height: 60)
+                    .cornerRadius(8)
+                    .clipped()
+            }
         }
     }
 }
@@ -252,6 +251,15 @@ struct DetailView: View {
                     
                     // 卡片式内容区域
                     VStack(alignment: .leading, spacing: 15) {
+                        // 添加图片显示（在正文上方）
+                        if let imageData = entry.imageData, let uiImage = UIImage(data: imageData) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFit()
+                                .cornerRadius(12)
+                                .padding(.bottom)
+                        }
+                        
                         Text(entry.content)
                             .font(.body)
                             .padding()
@@ -372,8 +380,17 @@ struct AddEntryView: View {
                     }
                 }
                 
-                // 移除原 "添加图片" Section
-                // Section("添加图片") { ... }
+                Section("添加图片") {
+                    PhotosPicker("选择照片", selection: $photoItem, matching: .images)
+                    
+                    if let selectedImage {
+                        Image(uiImage: selectedImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 200)
+                            .cornerRadius(12)
+                    }
+                }
                 
                 Section("选择透明度") {
                     HStack {
@@ -425,7 +442,7 @@ struct AddEntryView: View {
             content: content,
             emotion: selectedEmotion,
             timestamp: Date(),
-            // 移除 imageData 参数
+            imageData: selectedImage?.jpegData(compressionQuality: 0.8), // 保存压缩后的图片
             customColor: selectedColor,
             customOpacity: selectedOpacity
         )
@@ -507,6 +524,14 @@ extension Color {
         let b = Float(components[2])
         return String(format: "#%02lX%02lX%02lX", lroundf(r * 255), lroundf(g * 255), lroundf(b * 255))
     }
+}
+extension DateFormatter {
+    static let chineseDate: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy年MM月dd日"
+        return formatter
+    }()
 }
 @main
 struct MemoGalaxy: App {
