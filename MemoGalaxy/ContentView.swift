@@ -166,35 +166,82 @@ struct DetailView: View {
     
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                HStack {
-                    Text(entry.emotion.rawValue)
-                        .font(.system(size: 60))
-                        .padding(10)
-                        .background(
-                            entry.customColor != nil 
-                                ? Color(hex: entry.customColor!).opacity(entry.customOpacity) 
-                                : entry.emotion.color.opacity(entry.customOpacity)
-                        )
-                        .clipShape(Circle())
-                    Text(entry.timestamp.formatted())
-                        .foregroundStyle(.secondary)
-                }
+            ZStack {
+                // 主题色全屏背景
+                (entry.customColor != nil ? 
+                    Color(hex: entry.customColor!) : 
+                    entry.emotion.color)
+                .opacity(0.1)
+                .edgesIgnoringSafeArea(.all)
                 
-                Text(entry.content)
-                    .font(.title3)
-                
-                if let imageData = entry.imageData,
-                   let uiImage = UIImage(data: imageData) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFit()
-                        .cornerRadius(12)
+                // 内容卡片
+                VStack(alignment: .leading, spacing: 20) {
+                    HStack {
+                        Text(entry.emotion.rawValue)
+                            .font(.system(size: 60))
+                            .padding(10)
+                            .background(
+                                entry.customColor != nil ? 
+                                    Color(hex: entry.customColor!).opacity(entry.customOpacity) : 
+                                    entry.emotion.color.opacity(entry.customOpacity)
+                            )
+                            .clipShape(Circle())
+                        
+                        Text(entry.timestamp.formatted(date: .abbreviated, time: .shortened))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.bottom)
+                    
+                    // 卡片式内容区域
+                    VStack(alignment: .leading, spacing: 15) {
+                        Text("日记内容")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        
+                        Text(entry.content)
+                            .font(.body)
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(.systemBackground))
+                                    .shadow(color: .primary.opacity(0.1), radius: 6, x: 0, y: 2)
+                            )
+                        
+                        if let imageData = entry.imageData,
+                           let uiImage = UIImage(data: imageData) {
+                            Text("附加图片")
+                                .font(.headline)
+                                .padding(.top)
+                            
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFit()
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                                )
+                        }
+                    }
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(.systemBackground))
+                    )
+                    .padding(.horizontal)
                 }
+                .padding(.top, 40)
             }
-            .padding()
         }
         .navigationTitle("日记详情")
+        .background(
+            (entry.customColor != nil ? 
+                Color(hex: entry.customColor!) : 
+                entry.emotion.color)
+                .opacity(0.05)
+                .edgesIgnoringSafeArea(.all)
+        )
     }
 }
 
