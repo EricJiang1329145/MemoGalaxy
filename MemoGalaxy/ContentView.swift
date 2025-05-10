@@ -232,6 +232,26 @@ struct AddEntryView: View {
                     .padding(.vertical)
                 }
                 
+                Section("选择主题颜色") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack {
+                            ColorPicker("自定义颜色", selection: Binding(
+                                get: { Color(hex: selectedColor ?? "#FFFFFF") },
+                                set: { selectedColor = $0.toHex() }
+                            ))
+                            .frame(width: 44, height: 44)
+                            
+                            ForEach(presetColors, id: \.1) { name, hex in
+                                ColorCircle(color: hex, isSelected: selectedColor == hex)
+                                    .onTapGesture {
+                                        selectedColor = hex
+                                    }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                }
+                
                 Section("日记内容") {
                     TextEditor(text: $content)
                         .frame(minHeight: 150)
@@ -248,26 +268,6 @@ struct AddEntryView: View {
                             .scaledToFit()
                             .frame(maxHeight: 200)
                             .cornerRadius(8)
-                    }
-                }
-                
-                Section("选择主题颜色") {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack {
-                            ForEach(presetColors, id: \.1) { name, hex in
-                                ColorCircle(color: hex, isSelected: selectedColor == hex)
-                                    .onTapGesture {
-                                        selectedColor = hex
-                                    }
-                            }
-                            
-                            ColorPicker("自定义颜色", selection: Binding(
-                                get: { Color(hex: selectedColor ?? "#FFFFFF") },
-                                set: { selectedColor = $0.toHex() }
-                            ))
-                            .frame(width: 44, height: 44)
-                        }
-                        .padding(.vertical, 8)
                     }
                 }
             }
