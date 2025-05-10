@@ -16,7 +16,8 @@ struct EmotionEntry: Identifiable, Codable {
     let emotion: EmotionType
     let timestamp: Date
     var imageData: Data?
-    var customColor: String? // 新增自定义颜色字段
+    var customColor: String?
+    var customOpacity: Double = 0.8 // 新增透明度字段，默认最不透明
     
     enum EmotionType: String, Codable, CaseIterable {
         case happy = "😊"
@@ -135,8 +136,8 @@ struct EntryRow: View {
                 .padding(5)
                 .background(
                     entry.customColor != nil 
-                        ? Color(hex: entry.customColor!) 
-                        : entry.emotion.color
+                        ? Color(hex: entry.customColor!).opacity(entry.customOpacity) 
+                        : entry.emotion.color.opacity(entry.customOpacity)
                 )
                 .clipShape(Circle())
             
@@ -172,8 +173,8 @@ struct DetailView: View {
                         .padding(10)
                         .background(
                             entry.customColor != nil 
-                                ? Color(hex: entry.customColor!).opacity(0.2) 
-                                : entry.emotion.color.opacity(0.2)
+                                ? Color(hex: entry.customColor!).opacity(entry.customOpacity) 
+                                : entry.emotion.color.opacity(entry.customOpacity)
                         )
                         .clipShape(Circle())
                     Text(entry.timestamp.formatted())
@@ -207,6 +208,7 @@ struct AddEntryView: View {
     @State private var selectedImage: UIImage?
     @State private var photoItem: PhotosPickerItem?
     @State private var selectedColor: String?
+    @State private var selectedOpacity: Double = 0.8 // 新增透明度状态
     
     let presetColors = [
         ("初音绿", "#39C5BB"),
@@ -235,6 +237,7 @@ struct AddEntryView: View {
                 Section("选择主题颜色") {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack {
+                            // 调整顺序：取色器放在预设颜色左边
                             ColorPicker("自定义颜色", selection: Binding(
                                 get: { Color(hex: selectedColor ?? "#FFFFFF") },
                                 set: { selectedColor = $0.toHex() }
@@ -270,6 +273,31 @@ struct AddEntryView: View {
                             .cornerRadius(8)
                     }
                 }
+                
+                Section("选择透明度") {
+                    HStack {
+                        Text("不透明度")
+                        Slider(
+                            value: $selectedOpacity,
+                            in: 0...1,
+                            step: 0.1
+                        )
+                        Text(String(format: "%.1f", selectedOpacity))
+                    }
+                    
+                    HStack {
+                        Text("预览：")
+                        // 实时预览颜色+透明度效果
+                        Circle()
+                            .fill(
+                                selectedColor != nil 
+                                    ? Color(hex: selectedColor!) 
+                                    : selectedEmotion.color
+                            )
+                            .frame(width: 44, height: 44)
+                            .opacity(selectedOpacity)
+                    }
+                }
             }
             .navigationTitle("新日记")
             .toolbar {
@@ -296,7 +324,8 @@ struct AddEntryView: View {
             emotion: selectedEmotion,
             timestamp: Date(),
             imageData: selectedImage?.jpegData(compressionQuality: 0.8),
-            customColor: selectedColor // 保存选择的颜色
+            customColor: selectedColor,
+            customOpacity: selectedOpacity // 保存透明度
         )
         manager.saveEntry(newEntry)
         dismiss()
