@@ -237,18 +237,22 @@ struct AddEntryView: View {
                 Section("选择主题颜色") {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack {
-                            // 调整顺序：取色器放在预设颜色左边
                             ColorPicker("自定义颜色", selection: Binding(
                                 get: { Color(hex: selectedColor ?? "#FFFFFF") },
                                 set: { selectedColor = $0.toHex() }
                             ))
                             .frame(width: 44, height: 44)
                             
+                            // 传递颜色名称给ColorCircle
                             ForEach(presetColors, id: \.1) { name, hex in
-                                ColorCircle(color: hex, isSelected: selectedColor == hex)
-                                    .onTapGesture {
-                                        selectedColor = hex
-                                    }
+                                ColorCircle(
+                                    color: hex,
+                                    colorName: name, // 新增颜色名称参数
+                                    isSelected: selectedColor == hex
+                                )
+                                .onTapGesture {
+                                    selectedColor = hex
+                                }
                             }
                         }
                         .padding(.vertical, 8)
@@ -334,18 +338,25 @@ struct AddEntryView: View {
 
 struct ColorCircle: View {
     let color: String
+    let colorName: String // 新增颜色名称参数
     let isSelected: Bool
     
     var body: some View {
         ZStack {
             Circle()
                 .fill(Color(hex: color))
-                .frame(width: 44, height: 44)
-            
+                .frame(width: isSelected ? 48 : 44, height: isSelected ? 48 : 44) // 选中时放大4pt
+                .animation(.easeInOut(duration: 0.1), value: isSelected) // 大小变化动画
+                
             if isSelected {
-                Circle()
-                    .stroke(Color.primary, lineWidth: 2)
-                    .frame(width: 48, height: 48)
+                Text(colorName)
+                    .font(.caption2)
+                    .padding(4)
+                    .background(.black.opacity(0.7))
+                    .foregroundColor(.white)
+                    .cornerRadius(4)
+                    .offset(y: -32) // 定位到圆圈上方
+                    .transition(.opacity.combined(with: .scale(scale: 0.8))) // 淡入+缩放过渡
             }
         }
     }
