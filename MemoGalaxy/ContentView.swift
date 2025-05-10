@@ -92,6 +92,7 @@ class DiaryManager: ObservableObject {
 struct ContentView: View {
     @StateObject private var manager = DiaryManager()
     @State private var showingAddView = false
+    @State private var entryToDelete: EmotionEntry?  // 新增删除状态跟踪
     
     var body: some View {
         NavigationStack {
@@ -102,12 +103,36 @@ struct ContentView: View {
                     }
                     .swipeActions {
                         Button(role: .destructive) {
-                            manager.deleteEntry(entry)
+                            entryToDelete = entry  // 改为触发确认对话框
                         } label: {
-                            Label("Delete", systemImage: "trash")
+                            Label("删除", systemImage: "trash")
                         }
                     }
                 }
+            }
+            .overlay {
+                if manager.entries.isEmpty {
+                    ContentUnavailableView(
+                        "开启你的星云之旅",
+                        systemImage: "moon.stars",
+                        description: Text("点击右下角的+号记录你的心情日记")
+                    )
+                }
+            }
+            .confirmationDialog(
+                "确认删除",
+                isPresented: .constant(entryToDelete != nil),
+                presenting: entryToDelete
+            ) { entry in
+                Button("删除", role: .destructive) {
+                    manager.deleteEntry(entry)
+                    entryToDelete = nil
+                }
+                Button("取消", role: .cancel) {
+                    entryToDelete = nil
+                }
+            } message: { entry in
+                Text("确定要永久删除\(entry.timestamp.formatted(date: .abbreviated, time: .omitted))的日记吗？")
             }
             .navigationTitle("MemoGalaxy 🌌")
             .toolbar {
@@ -164,6 +189,14 @@ struct EntryRow: View {
 struct DetailView: View {
     let entry: EmotionEntry
     
+    // 中文日期格式化器
+    private var chineseDateTimeFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy年MM月dd日 HH时mm分ss秒"
+        return formatter
+    }
+    
     var body: some View {
         ScrollView {
             ZStack {
@@ -187,8 +220,10 @@ struct DetailView: View {
                             )
                             .clipShape(Circle())
                         
-                        Text(entry.timestamp.formatted(date: .abbreviated, time: .shortened))
+                        // 修改为中文时间格式
+                        Text(chineseDateTimeFormatter.string(from: entry.timestamp))
                             .foregroundStyle(.secondary)
+                            .font(.footnote)
                     }
                     .padding(.bottom)
                     
@@ -373,7 +408,7 @@ struct AddEntryView: View {
             id: UUID(),
             content: content,
             emotion: selectedEmotion,
-            timestamp: Date(),
+            timestamp: Date(), // 这里会自动记录精确到秒的时间
             imageData: selectedImage?.jpegData(compressionQuality: 0.8),
             customColor: selectedColor,
             customOpacity: selectedOpacity // 保存透明度
