@@ -26,6 +26,12 @@ struct EmotionEntry: Identifiable, Codable {
         case angry = "😠"
         case love = "🥰"
         case calm = "😌"
+        // 新增情绪类型
+        case surprised = "😲"  // 惊讶
+        case bored = "😴"     // 无聊
+        case excited = "🎉"   // 兴奋
+        case thoughtful = "🤔"// 思考
+        case grateful = "🙏"   // 感恩
         
         var color: Color {
             switch self {
@@ -34,6 +40,12 @@ struct EmotionEntry: Identifiable, Codable {
             case .angry: return .red
             case .love: return .pink
             case .calm: return .mint
+            // 新增颜色对应
+            case .surprised: return .orange
+            case .bored: return .gray
+            case .excited: return .purple
+            case .thoughtful: return .indigo
+            case .grateful: return .green
             }
         }
     }
@@ -163,11 +175,15 @@ struct ContentView: View {
 // MARK: - 列表项组件
 struct EntryRow: View {
     let entry: EmotionEntry
+    @State private var isTapped = false  // 新增动画状态
     
     var body: some View {
         HStack(alignment: .top) {
             Text(entry.emotion.rawValue)
-                .font(.system(size: 40))
+                .font(.system(size: 40, design: .default))  // 默认使用系统emoji风格
+                // 或强制使用特定风格
+                // .font(.system(size: 40, design: .rounded))  // 圆润风格
+                // .font(.system(size: 40, design: .monospaced))  // 等宽风格
                 .padding(5)
                 .background(
                     entry.customColor != nil 
@@ -175,6 +191,14 @@ struct EntryRow: View {
                         : entry.emotion.color.opacity(entry.customOpacity)
                 )
                 .clipShape(Circle())
+                .scaleEffect(isTapped ? 1.2 : 1)  // 缩放动画
+                .animation(.spring(response: 0.3, dampingFraction: 0.5), value: isTapped)
+                .onTapGesture {
+                    isTapped.toggle()  // 点击触发动画
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        isTapped = false  // 自动恢复
+                    }
+                }
             
             VStack(alignment: .leading) {
                 // 修改时间显示格式
@@ -225,18 +249,25 @@ struct DetailView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     HStack(alignment: .top) {
                         Text(entry.emotion.rawValue)
-                            .font(.system(size: 60))
+                            .font(.system(size: 60, weight: .bold))
                             .padding(10)
                             .background(
-                                entry.customColor != nil ? 
-                                    Color(hex: entry.customColor!).opacity(entry.customOpacity) : 
-                                    entry.emotion.color.opacity(entry.customOpacity)
+                                // 添加渐变背景
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        entry.customColor != nil ? Color(hex: entry.customColor!) : entry.emotion.color,
+                                        entry.customColor != nil ? Color(hex: entry.customColor!).opacity(0.7) : entry.emotion.color.opacity(0.7)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                                .opacity(entry.customOpacity)
                             )
                             .clipShape(Circle())
                         
                         VStack(alignment: .leading) {
-                            // 新增标题在表情右侧
-                            Text("日记详情")
+                            // 替换为实际日记标题
+                            Text(entry.title)
                                 .font(.system(.title, design: .rounded))
                                 .bold()
                                 .padding(.bottom, 4)
@@ -294,7 +325,8 @@ struct DetailView: View {
                 .padding(.top, 40)
             }
         }
-        // 移除原有导航栏标题设置
+        // 设置导航栏标题为日记标题
+        .navigationTitle(entry.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { /* 移除原有的 ToolbarItem */ }
         .background(
@@ -377,11 +409,19 @@ struct AddEntryView: View {
                             ForEach(presetColors, id: \.1) { name, hex in
                                 ColorCircle(
                                     color: hex,
-                                    colorName: name, // 新增颜色名称参数
+                                    colorName: name,
                                     isSelected: selectedColor == hex
                                 )
+                                // 新增按压动画
+                                .scaleEffect(selectedColor == hex ? 1.05 : 1)  // 选中时微放大
+                                .animation(
+                                    .spring(response: 0.3, dampingFraction: 0.7),
+                                    value: selectedColor
+                                )
                                 .onTapGesture {
-                                    selectedColor = hex
+                                    withAnimation {
+                                        selectedColor = hex  // 动画包裹颜色选择
+                                    }
                                 }
                             }
                         }
