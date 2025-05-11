@@ -118,11 +118,8 @@ class DiaryManager: ObservableObject {
         saveData()
     }
     
-    // 新增批量删除方法
-    func deleteEntries(_ entriesToDelete: [EmotionEntry]) {
-        entries.removeAll { entry in
-            entriesToDelete.contains { $0.id == entry.id }
-        }
+    func deleteEntry(_ entry: EmotionEntry) {
+        entries.removeAll { $0.id == entry.id }
         saveData()
     }
 }
@@ -135,67 +132,42 @@ struct ContentView: View {
     @State private var isLoading = true
     @State private var selectedEntry: EmotionEntry?
     @State private var searchText = ""
-    @State private var showingSettingsView = false
-    @State private var selectedEntryIDs = Set<UUID>()  // 新增：多选ID集合
-    @State private var isEditing = false  // 新增：编辑模式状态
+    @State private var showingSettingsView = false  // 新增状态变量
 
     var body: some View {
+        // 使用iPadOS推荐的分栏视图
         NavigationSplitView {
-            List(manager.entries, id: \.id, selection: $selectedEntryIDs) { entry in  // 修改：支持多选
-                EntryRow(
-                    entry: entry,
-                    isSelected: selectedEntryIDs.contains(entry.id)  // 传递选中状态
-                )
+            // 侧边栏（左侧）
+            List(manager.entries, selection: $selectedEntry) { entry in
+                NavigationLink(value: entry) {
+                    EntryRow(entry: entry)
+                }
                 .swipeActions {
-                    if !isEditing {  // 非编辑模式保留单删按钮
-                        Button(role: .destructive) {
-                            entryToDelete = entry
-                        } label: {
-                            Label("删除", systemImage: "trash")
-                        }
+                    Button(role: .destructive) {
+                        entryToDelete = entry
+                    } label: {
+                        Label("删除", systemImage: "trash")
                     }
                 }
             }
             .navigationTitle("日记列表")
             .toolbar {
+                // 左上角设置按钮（改为按钮触发模态）
                 ToolbarItemGroup(placement: .navigationBarLeading) {
-                    // 编辑模式切换按钮
-                    Button(isEditing ? "完成" : "编辑") {
-                        isEditing.toggle()
-                        if !isEditing {  // 退出编辑模式时清空选中
-                            selectedEntryIDs.removeAll()
-                        }
-                    }
-                    .disabled(manager.entries.isEmpty)
-                    
-                    // 恢复设置按钮（新增）
                     Button {
-                        showingSettingsView = true  // 触发设置页模态显示
+                        showingSettingsView = true  // 触发模态显示
                     } label: {
                         Image(systemName: "gearshape")
-                            .padding(.leading, 8)  // 与编辑按钮保持间距
                     }
                 }
-            
-                // 批量删除按钮（编辑模式显示）
-                if isEditing {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("批量删除", role: .destructive) {
-                            entryToDelete = nil  // 清空单删状态
-                        }
-                        .disabled(selectedEntryIDs.isEmpty)
-                    }
-                }
-            
-                // 原添加按钮（非编辑模式显示）
-                if !isEditing {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button {
-                            showingAddView = true
-                        } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.title2)
-                        }
+                
+                // 右上角添加按钮（移除原有的设置按钮）
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button {
+                        showingAddView = true
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title2)
                     }
                 }
             }
@@ -222,34 +194,34 @@ struct ContentView: View {
         .sheet(isPresented: $showingAddView) {
             AddEntryView(manager: manager)
         }
-        .sheet(isPresented: $showingSettingsView) {
+        .sheet(isPresented: $showingSettingsView) {  // 新增模态视图
             SettingsView()
         }
         .onReceive(manager.$entries) { _ in
             isLoading = false
-            if !manager.entries.isEmpty && selectedEntry == nil && !isEditing {
+            // 自动选择第一个条目（可选）
+            if !manager.entries.isEmpty && selectedEntry == nil {
                 selectedEntry = manager.entries.first
             }
         }
         .confirmationDialog(
-            "确认批量删除",
-            isPresented: .constant(!selectedEntryIDs.isEmpty && isEditing),  // 编辑模式且有选中时显示
-            titleVisibility: .visible
-        ) {
+            "确认删除",
+            isPresented: .constant(entryToDelete != nil),
+            presenting: entryToDelete
+        ) { entry in
             Button("删除", role: .destructive) {
+                // 添加动画包裹删除操作
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    let entriesToDelete = manager.entries.filter { selectedEntryIDs.contains($0.id) }
-                    manager.deleteEntries(entriesToDelete)
-                    selectedEntryIDs.removeAll()
-                    isEditing = false  // 删除后退出编辑模式
+                    manager.deleteEntry(entry)
                 }
+                entryToDelete = nil
+                selectedEntry = nil
             }
             Button("取消", role: .cancel) {
-                selectedEntryIDs.removeAll()
-                isEditing = false
+                entryToDelete = nil
             }
-        } message: {
-            Text("确定要永久删除选中的\(selectedEntryIDs.count)篇日记吗？")
+        } message: { entry in
+            Text("确定要永久删除\(entry.timestamp.formatted(date: .abbreviated, time: .omitted))的日记吗？")
         }
     }
 }
@@ -257,20 +229,15 @@ struct ContentView: View {
 // MARK: - 列表项组件
 struct EntryRow: View {
     let entry: EmotionEntry
-    var isSelected: Bool = false  // 新增：选中状态参数
-    @State private var isTapped = false  // 添加isTapped状态变量
+    @State private var isTapped = false
     
     var body: some View {
         HStack(alignment: .top) {
-            if isSelected {  // 编辑模式显示勾选标记
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(Color.accentColor)  // 修复：使用Color.accentColor替代.accent
-            }
-            
             Text(entry.emotion)
                 .font(.system(size: 40, design: .default))
                 .padding(5)
                 .background(
+                    // 改为从字典获取颜色，无匹配时使用默认灰色
                     entry.customColor != nil 
                         ? Color(hex: entry.customColor!).opacity(entry.customOpacity) 
                         : (emojiToColorMap[entry.emotion] ?? .gray).opacity(entry.customOpacity)
