@@ -132,74 +132,72 @@ struct ContentView: View {
     @State private var isLoading = true
     @State private var selectedEntry: EmotionEntry?
     @State private var searchText = ""
-    @State private var showingSettingsView = false  // 新增状态变量
 
     var body: some View {
-        // 使用iPadOS推荐的分栏视图
-        NavigationSplitView {
-            // 侧边栏（左侧）
-            List(manager.entries, selection: $selectedEntry) { entry in
-                NavigationLink(value: entry) {
-                    EntryRow(entry: entry)
-                }
-                .swipeActions {
-                    Button(role: .destructive) {
-                        entryToDelete = entry
-                    } label: {
-                        Label("删除", systemImage: "trash")
+        // iOS 18+ 推荐的标签栏结构
+        TabView {
+            // 主界面标签页
+            NavigationSplitView {
+                // 侧边栏（左侧）
+                List(manager.entries, selection: $selectedEntry) { entry in
+                    NavigationLink(value: entry) {
+                        EntryRow(entry: entry)
+                    }
+                    .swipeActions {
+                        Button(role: .destructive) {
+                            entryToDelete = entry
+                        } label: {
+                            Label("删除", systemImage: "trash")
+                        }
                     }
                 }
-            }
-            .navigationTitle("日记列表")
-            .toolbar {
-                // 左上角设置按钮（改为按钮触发模态）
-                ToolbarItemGroup(placement: .navigationBarLeading) {
-                    Button {
-                        showingSettingsView = true  // 触发模态显示
-                    } label: {
-                        Image(systemName: "gearshape")
+                .navigationTitle("日记列表")
+                .toolbar {
+                    // 右上角添加按钮保留
+                    ToolbarItemGroup(placement: .navigationBarTrailing) {
+                        Button {
+                            showingAddView = true
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                        }
                     }
                 }
-                
-                // 右上角添加按钮（移除原有的设置按钮）
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    Button {
-                        showingAddView = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
+                .overlay {
+                    if manager.entries.isEmpty {
+                        ContentUnavailableView(
+                            "开启你的星云之旅",
+                            systemImage: "moon.stars",
+                            description: Text("点击+号记录心情日记")
+                        )
                     }
                 }
-            }
-            .overlay {
-                if manager.entries.isEmpty {
+            } detail: {
+                // 详情页（右侧）
+                if let entry = selectedEntry {
+                    DetailView(entry: entry)
+                } else {
                     ContentUnavailableView(
-                        "开启你的星云之旅",
-                        systemImage: "moon.stars",
-                        description: Text("点击+号记录心情日记")
+                        "选择日记查看详情",
+                        systemImage: "doc.text"
                     )
                 }
             }
-        } detail: {
-            // 详情页（右侧）
-            if let entry = selectedEntry {
-                DetailView(entry: entry)
-            } else {
-                ContentUnavailableView(
-                    "选择日记查看详情",
-                    systemImage: "doc.text"
-                )
+            .tabItem {
+                Label("日记", systemImage: "list.dash")
             }
+
+            // 设置标签页
+            SettingsView()
+                .tabItem {
+                    Label("设置", systemImage: "gearshape")
+                }
         }
         .sheet(isPresented: $showingAddView) {
             AddEntryView(manager: manager)
         }
-        .sheet(isPresented: $showingSettingsView) {  // 新增模态视图
-            SettingsView()
-        }
         .onReceive(manager.$entries) { _ in
             isLoading = false
-            // 自动选择第一个条目（可选）
             if !manager.entries.isEmpty && selectedEntry == nil {
                 selectedEntry = manager.entries.first
             }
@@ -210,7 +208,6 @@ struct ContentView: View {
             presenting: entryToDelete
         ) { entry in
             Button("删除", role: .destructive) {
-                // 添加动画包裹删除操作
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     manager.deleteEntry(entry)
                 }
