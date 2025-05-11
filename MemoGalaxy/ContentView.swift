@@ -24,7 +24,7 @@ private let emojiToColorMap: [String: Color] = [
 ]
 
 // MARK: - 数据模型
-struct EmotionEntry: Identifiable, Codable {
+struct EmotionEntry: Identifiable, Codable, Hashable {  // Add Hashable conformance
     let id: UUID
     let title: String  // 新增标题字段
     let content: String
@@ -118,8 +118,11 @@ class DiaryManager: ObservableObject {
         saveData()
     }
     
-    func deleteEntry(_ entry: EmotionEntry) {
-        entries.removeAll { $0.id == entry.id }
+    // 新增批量删除方法
+    func deleteEntries(_ entriesToDelete: [EmotionEntry]) {
+        entries.removeAll { entry in
+            entriesToDelete.contains { $0.id == entry.id }
+        }
         saveData()
     }
 }
@@ -130,66 +133,63 @@ struct ContentView: View {
     @State private var showingAddView = false
     @State private var entryToDelete: EmotionEntry?
     @State private var isLoading = true
-    @State private var searchText = ""  // 新增搜索输入状态
-    @State private var searchDebounceTimer: Timer?  // 新增防抖计时器
-    
-    // 新增过滤后的条目计算属性
-    private var filteredEntries: [EmotionEntry] {
-        guard !searchText.isEmpty else { return manager.entries }
-        return manager.entries.filter { entry in
-            entry.title.localizedCaseInsensitiveContains(searchText) ||
-            entry.content.localizedCaseInsensitiveContains(searchText) ||
-            entry.emotion.localizedCaseInsensitiveContains(searchText)
-        }
-    }
-    
+    @State private var selectedEntry: EmotionEntry?
+    @State private var searchText = ""
+    @State private var showingSettingsView = false
+    @State private var selectedEntryIDs = Set<UUID>()  // 新增：多选ID集合
+    @State private var isEditing = false  // 新增：编辑模式状态
+
     var body: some View {
-        NavigationStack {
-            Group {
-                if isLoading {
-                    ProgressView("加载日记中...")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    List {
-                        ForEach(manager.entries) { entry in
-                            NavigationLink(destination: DetailView(entry: entry)) {
-                                EntryRow(entry: entry)
-                            }
-                            .swipeActions {
-                                Button(role: .destructive) {
-                                    entryToDelete = entry  // 改为触发确认对话框
-                                } label: {
-                                    Label("删除", systemImage: "trash")
-                                }
-                            }
+        NavigationSplitView {
+            List(manager.entries, id: \.id, selection: $selectedEntryIDs) { entry in  // 修改：支持多选
+                EntryRow(
+                    entry: entry,
+                    isSelected: selectedEntryIDs.contains(entry.id)  // 传递选中状态
+                )
+                .swipeActions {
+                    if !isEditing {  // 非编辑模式保留单删按钮
+                        Button(role: .destructive) {
+                            entryToDelete = entry
+                        } label: {
+                            Label("删除", systemImage: "trash")
                         }
                     }
-                    .overlay {
-                        if manager.entries.isEmpty {
-                            ContentUnavailableView(
-                                "开启你的星云之旅",
-                                systemImage: "moon.stars",
-                                description: Text("点击右下角的+号记录你的心情日记")
-                            )
+                }
+            }
+            .navigationTitle("日记列表")
+            .toolbar {
+                ToolbarItemGroup(placement: .navigationBarLeading) {
+                    // 编辑模式切换按钮
+                    Button(isEditing ? "完成" : "编辑") {
+                        isEditing.toggle()
+                        if !isEditing {  // 退出编辑模式时清空选中
+                            selectedEntryIDs.removeAll()
                         }
                     }
-                    .confirmationDialog(
-                        "确认删除",
-                        isPresented: .constant(entryToDelete != nil),
-                        presenting: entryToDelete
-                    ) { entry in
-                        Button("删除", role: .destructive) {
-                            manager.deleteEntry(entry)
-                            entryToDelete = nil
-                        }
-                        Button("取消", role: .cancel) {
-                            entryToDelete = nil
-                        }
-                    } message: { entry in
-                        Text("确定要永久删除\(entry.timestamp.formatted(date: .abbreviated, time: .omitted))的日记吗？")
+                    .disabled(manager.entries.isEmpty)
+                    
+                    // 恢复设置按钮（新增）
+                    Button {
+                        showingSettingsView = true  // 触发设置页模态显示
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .padding(.leading, 8)  // 与编辑按钮保持间距
                     }
-                    .navigationTitle("MemoGalaxy 🌌")
-                    .toolbar {
+                }
+            
+                // 批量删除按钮（编辑模式显示）
+                if isEditing {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("批量删除", role: .destructive) {
+                            entryToDelete = nil  // 清空单删状态
+                        }
+                        .disabled(selectedEntryIDs.isEmpty)
+                    }
+                }
+            
+                // 原添加按钮（非编辑模式显示）
+                if !isEditing {
+                    ToolbarItem(placement: .navigationBarTrailing) {
                         Button {
                             showingAddView = true
                         } label: {
@@ -197,14 +197,59 @@ struct ContentView: View {
                                 .font(.title2)
                         }
                     }
-                    .sheet(isPresented: $showingAddView) {
-                        AddEntryView(manager: manager)
-                    }
                 }
             }
-            .onReceive(manager.$entries) { _ in
-                isLoading = false  // 数据加载完成后隐藏加载提示
+            .overlay {
+                if manager.entries.isEmpty {
+                    ContentUnavailableView(
+                        "开启你的星云之旅",
+                        systemImage: "moon.stars",
+                        description: Text("点击+号记录心情日记")
+                    )
+                }
             }
+        } detail: {
+            // 详情页（右侧）
+            if let entry = selectedEntry {
+                DetailView(entry: entry)
+            } else {
+                ContentUnavailableView(
+                    "选择日记查看详情",
+                    systemImage: "doc.text"
+                )
+            }
+        }
+        .sheet(isPresented: $showingAddView) {
+            AddEntryView(manager: manager)
+        }
+        .sheet(isPresented: $showingSettingsView) {
+            SettingsView()
+        }
+        .onReceive(manager.$entries) { _ in
+            isLoading = false
+            if !manager.entries.isEmpty && selectedEntry == nil && !isEditing {
+                selectedEntry = manager.entries.first
+            }
+        }
+        .confirmationDialog(
+            "确认批量删除",
+            isPresented: .constant(!selectedEntryIDs.isEmpty && isEditing),  // 编辑模式且有选中时显示
+            titleVisibility: .visible
+        ) {
+            Button("删除", role: .destructive) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    let entriesToDelete = manager.entries.filter { selectedEntryIDs.contains($0.id) }
+                    manager.deleteEntries(entriesToDelete)
+                    selectedEntryIDs.removeAll()
+                    isEditing = false  // 删除后退出编辑模式
+                }
+            }
+            Button("取消", role: .cancel) {
+                selectedEntryIDs.removeAll()
+                isEditing = false
+            }
+        } message: {
+            Text("确定要永久删除选中的\(selectedEntryIDs.count)篇日记吗？")
         }
     }
 }
@@ -212,15 +257,20 @@ struct ContentView: View {
 // MARK: - 列表项组件
 struct EntryRow: View {
     let entry: EmotionEntry
-    @State private var isTapped = false
+    var isSelected: Bool = false  // 新增：选中状态参数
+    @State private var isTapped = false  // 添加isTapped状态变量
     
     var body: some View {
         HStack(alignment: .top) {
+            if isSelected {  // 编辑模式显示勾选标记
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(Color.accentColor)  // 修复：使用Color.accentColor替代.accent
+            }
+            
             Text(entry.emotion)
                 .font(.system(size: 40, design: .default))
                 .padding(5)
                 .background(
-                    // 改为从字典获取颜色，无匹配时使用默认灰色
                     entry.customColor != nil 
                         ? Color(hex: entry.customColor!).opacity(entry.customOpacity) 
                         : (emojiToColorMap[entry.emotion] ?? .gray).opacity(entry.customOpacity)
@@ -318,17 +368,9 @@ struct DetailView: View {
                     
                     // 卡片式内容区域
                     VStack(alignment: .leading, spacing: 15) {
-                        // 首图封面（保留重复显示）
-                        if let firstImageData = entry.imageDataArray?.first, let uiImage = UIImage(data: firstImageData) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .scaledToFit()
-                                .cornerRadius(12)
-                                .padding(.bottom)
-                                .onTapGesture { previewImage = uiImage }  // 点击触发预览
-                        }
+                        // 删除首图封面部分（原1203-1213行）
                         
-                        // 所有图片动态布局
+                        // 所有图片动态布局（保留原有逻辑）
                         if let imageDataArray = entry.imageDataArray, !imageDataArray.isEmpty {
                             if imageDataArray.count >= 3 {
                                 // 轮播图（≥3张）
@@ -378,15 +420,15 @@ struct DetailView: View {
                                     .shadow(color: .primary.opacity(0.1), radius: 6, x: 0, y: 2)
                             )
                         
-                        // 正文后显示所有照片（包含第一张）
-                        if let imageDataArray = entry.imageDataArray {
-                            ForEach(0..<imageDataArray.count, id: \.self) { index in
+                        // 调整文末图片展示（跳过第一张）
+                        if let imageDataArray = entry.imageDataArray, imageDataArray.count > 1 {
+                            ForEach(1..<imageDataArray.count, id: \.self) { index in
                                 if let uiImage = UIImage(data: imageDataArray[index]) {
                                     Image(uiImage: uiImage)
                                         .resizable()
                                         .scaledToFit()
                                         .cornerRadius(12)
-                                        .padding(.vertical, 8) // 减小垂直间距为8点
+                                        .padding(.vertical, 8)
                                 }
                             }
                         }
@@ -769,3 +811,67 @@ struct MemoGalaxy: App {
 #Preview {
     ContentView()
 }
+
+// MARK: - 列表项预览
+struct EntryRow_Previews: PreviewProvider {
+    static var previews: some View {
+        Group {
+            // 日常工作压力场景
+            EntryRow(entry: EmotionEntry(
+                id: UUID(),
+                title: "项目上线日",
+                content: "连续三周的加班终于迎来成果，系统顺利上线！虽然疲惫但充满成就感，团队协作中学习到很多架构设计经验。",
+                emotion: "😌",
+                timestamp: Date().addingTimeInterval(-86400),
+                imageDataArray: [UIImage(systemName: "laptopcomputer")?.pngData()!].compactMap { $0 }
+            ))
+            
+            // 周末生活场景
+            EntryRow(entry: EmotionEntry(
+                id: UUID(),
+                title: "家庭聚餐日",
+                content: "和父母一起准备火锅晚餐，听他们讲述年轻时的故事。发现代沟其实也是理解的桥梁。",
+                emotion: "🥰",
+                timestamp: Date().addingTimeInterval(-172800),
+                imageDataArray: [UIImage(systemName: "house.fill")?.pngData()!].compactMap { $0 },
+                customColor: "#FF69B4"
+            ))
+        }
+        .previewDisplayName("生活场景预览")
+    }
+}
+
+struct DetailView_Previews: PreviewProvider {
+    static var previews: some View {
+        // 旅行回忆场景
+        let travelEntry = EmotionEntry(
+            id: UUID(),
+            title: "富士山之旅",
+            content: "清晨五点的河口湖，目睹'赤富士'奇观。\n登山注意事项：\n1. 携带充足饮用水\n2. 注意高原反应\n3. 遵守登山礼仪\n难忘的云海日出体验！",
+            emotion: "🎉",
+            timestamp: Date().addingTimeInterval(-259200),
+            imageDataArray: (1...3).compactMap { 
+                UIImage(systemName: ["mountain.2", "photo", "leaf"][$0-1])?.pngData() 
+            },
+            customColor: "#FF6600",
+            customOpacity: 0.6
+        )
+        
+        DetailView(entry: travelEntry)
+            .previewDisplayName("旅行日记预览")
+    }
+}
+
+// 在文件底部添加（或在现有预览代码后修改）
+#if DEBUG
+#Preview("带图片的列表项") {
+    EntryRow(entry: EmotionEntry(
+        id: UUID(),
+        title: "图片测试",
+        content: "带图片的列表项预览",
+        emotion: "🤔",
+        timestamp: Date(),
+        imageDataArray: [UIImage(systemName: "photo")!.pngData()!]
+    ))
+}
+#endif
