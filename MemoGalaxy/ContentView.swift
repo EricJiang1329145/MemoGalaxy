@@ -128,8 +128,20 @@ class DiaryManager: ObservableObject {
 struct ContentView: View {
     @StateObject private var manager = DiaryManager()
     @State private var showingAddView = false
-    @State private var entryToDelete: EmotionEntry?  // 新增删除状态跟踪
-    @State private var isLoading = true  // 新增加载状态
+    @State private var entryToDelete: EmotionEntry?
+    @State private var isLoading = true
+    @State private var searchText = ""  // 新增搜索输入状态
+    @State private var searchDebounceTimer: Timer?  // 新增防抖计时器
+    
+    // 新增过滤后的条目计算属性
+    private var filteredEntries: [EmotionEntry] {
+        guard !searchText.isEmpty else { return manager.entries }
+        return manager.entries.filter { entry in
+            entry.title.localizedCaseInsensitiveContains(searchText) ||
+            entry.content.localizedCaseInsensitiveContains(searchText) ||
+            entry.emotion.localizedCaseInsensitiveContains(searchText)
+        }
+    }
     
     var body: some View {
         NavigationStack {
@@ -249,6 +261,8 @@ struct EntryRow: View {
 // MARK: - 详情页
 struct DetailView: View {
     let entry: EmotionEntry
+    @State private var previewImage: UIImage?  // 全屏预览状态
+    @State private var currentCarouselIndex = 0  // 轮播图当前索引
     
     // 中文日期格式化器
     private var chineseDateTimeFormatter: DateFormatter {
@@ -304,13 +318,53 @@ struct DetailView: View {
                     
                     // 卡片式内容区域
                     VStack(alignment: .leading, spacing: 15) {
-                        // 首端只显示第一张照片
+                        // 首图封面（保留重复显示）
                         if let firstImageData = entry.imageDataArray?.first, let uiImage = UIImage(data: firstImageData) {
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .scaledToFit()
                                 .cornerRadius(12)
                                 .padding(.bottom)
+                                .onTapGesture { previewImage = uiImage }  // 点击触发预览
+                        }
+                        
+                        // 所有图片动态布局
+                        if let imageDataArray = entry.imageDataArray, !imageDataArray.isEmpty {
+                            if imageDataArray.count >= 3 {
+                                // 轮播图（≥3张）
+                                TabView(selection: $currentCarouselIndex) {
+                                    ForEach(imageDataArray.indices, id: \.self) { index in
+                                        if let uiImage = UIImage(data: imageDataArray[index]) {
+                                            Image(uiImage: uiImage)
+                                                .resizable()
+                                                .scaledToFit()
+                                                .cornerRadius(12)
+                                                .tag(index)
+                                                .onTapGesture { previewImage = uiImage }
+                                        }
+                                    }
+                                }
+                                .tabViewStyle(.page(indexDisplayMode: .always))
+                                .frame(height: 250)
+                            } else {
+                                // 网格布局（1-2张）
+                                LazyVGrid(columns: imageDataArray.count == 1 
+                                          ? [GridItem(.flexible())] 
+                                          : [GridItem(.flexible()), GridItem(.flexible())], 
+                                          spacing: 8) {
+                                    ForEach(imageDataArray.indices, id: \.self) { index in
+                                        if let uiImage = UIImage(data: imageDataArray[index]) {
+                                            Image(uiImage: uiImage)
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(height: imageDataArray.count == 1 ? 250 : 150)
+                                                .clipped()
+                                                .cornerRadius(12)
+                                                .onTapGesture { previewImage = uiImage }
+                                        }
+                                    }
+                                }
+                            }
                         }
                         
                         // 正文内容
