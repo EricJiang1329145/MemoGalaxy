@@ -288,7 +288,7 @@ struct EntryRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 
-                Text(entry.content)
+                Text(entry.title)
                     .lineLimit(2)
                     .padding(.top, 2)
             }
