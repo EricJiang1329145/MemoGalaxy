@@ -309,10 +309,12 @@ struct EntryRow: View {
 struct DetailView: View {
     let entry: EmotionEntry
     @ObservedObject var manager: DiaryManager  // 新增：接收数据管理器
-    @State private var newCommentText = ""      // 评论输入状态
+    @State private var newComment = ""      // 评论输入状态
     @State private var previewImage: UIImage?  // 全屏预览状态
     @State private var currentCarouselIndex = 0  // 轮播图当前索引
-    
+    private var currentEntry: EmotionEntry? {
+        manager.entries.first { $0.id == entry.id }
+    }
     // 中文日期格式化器
     private var chineseDateTimeFormatter: DateFormatter {
         let formatter = DateFormatter()
@@ -367,6 +369,7 @@ struct DetailView: View {
                     
                     // 卡片式内容区域
                     VStack(alignment: .leading, spacing: 15) {
+                        
                         // 所有图片动态布局（保留原有逻辑）
                         if let imageDataArray = entry.imageDataArray, !imageDataArray.isEmpty {
                             if imageDataArray.count >= 3 {
@@ -416,6 +419,51 @@ struct DetailView: View {
                                     .fill(Color(.systemBackground))
                                     .shadow(color: .primary.opacity(0.1), radius: 6, x: 0, y: 2)
                             )
+                        VStack(alignment: .leading) {
+                Text("评论 (\(currentEntry?.comments.count ?? 0))")
+                    .font(.headline)
+                    .padding(.top)
+                
+                HStack {
+                    TextField("写下你的评论...", text: $newComment)
+                        .textFieldStyle(.roundedBorder)
+                    
+                    Button {
+                        guard !newComment.isEmpty, var updatedEntry = currentEntry else { return }
+                        
+                        let comment = Comment(
+                            id: UUID(),
+                            content: newComment,
+                            timestamp: Date()
+                        )
+                        updatedEntry.comments.append(comment)
+                        manager.updateEntry(updatedEntry)
+                        newComment = ""
+                    } label: {
+                        Image(systemName: "paperplane.fill")
+                    }
+                    .disabled(newComment.isEmpty)
+                }
+                
+                // 修改评论列表显示逻辑
+                if let entry = currentEntry {
+                    ForEach(entry.comments) { comment in
+                        VStack(alignment: .leading) {
+                            Text(comment.content)
+                                .padding(8)
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(8)
+                            
+                            Text(comment.timestamp.formatted())
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        .padding(.vertical, 4)
+                        .transition(.opacity) // 添加过渡动画
+                    }
+                }
+            }
+                                    .padding()
                         
                         // 调整文末图片展示（跳过第一张）
                         if let imageDataArray = entry.imageDataArray, imageDataArray.count > 1 {
@@ -426,44 +474,10 @@ struct DetailView: View {
                                         .scaledToFit()
                                         .cornerRadius(12)
                                         .padding(.vertical, 8)
-                                }
+                                }.animation(.easeInOut, value: currentEntry?.comments.count) // 添加列表变化动画
+        .navigationTitle(entry.title)
                             }
                         }
-                        VStack(alignment: .leading, spacing: 12) {
-                                                Text("添加评论")
-                                                    .font(.headline)
-                                                    .padding(.horizontal)
-                                                
-                                                HStack {
-                                                    ZStack(alignment: .topLeading) {
-                                                        if newCommentText.isEmpty {
-                                                            Text("写下你的评论...")
-                                                                .foregroundStyle(.secondary)
-                                                                .padding(.top, 8)
-                                                                .padding(.leading, 4)
-                                                        }
-                                                        
-                                                        TextEditor(text: $newCommentText)
-                                                            .frame(minHeight: 80)
-                                                            .background(
-                                                                RoundedRectangle(cornerRadius: 12)
-                                                                    .fill(Color(.systemBackground))
-                                                                    .shadow(color: .primary.opacity(0.1), radius: 3, x: 0, y: 1)
-                                                            )
-                                                    }
-                                                    
-                                                    Button(action: submitComment) {
-                                                        Text("发布")
-                                                            .padding(.horizontal, 12)
-                                                            .padding(.vertical, 8)
-                                                            .background(Color.accentColor)
-                                                            .foregroundColor(.white)
-                                                            .cornerRadius(8)
-                                                    }
-                                                    .disabled(newCommentText.isEmpty)
-                                                }
-                                                .padding(.horizontal)
-                                            }
                     }
                     .padding(20) // 增大外层间距
                     .background(
@@ -488,35 +502,6 @@ struct DetailView: View {
                 .edgesIgnoringSafeArea(.all)
         )
     }
-    private func submitComment() {
-            guard !newCommentText.isEmpty else { return }
-            
-            let newComment = Comment(
-                id: UUID(),
-                content: newCommentText,
-                timestamp: Date()
-            )
-            
-            var updatedEntry = entry
-            updatedEntry.comments.append(newComment)
-            manager.updateEntry(updatedEntry)
-            
-            newCommentText = ""  // 清空输入框
-        private func submitComment() {
-                guard !newCommentText.isEmpty else { return }
-                
-                let newComment = Comment(
-                    id: UUID(),
-                    content: newCommentText,
-                    timestamp: Date()
-                )
-                
-                var updatedEntry = entry
-                updatedEntry.comments.append(newComment)
-                manager.updateEntry(updatedEntry)
-                
-                newCommentText = ""  // 清空输入框
-            }}
 }
 
 // MARK: - 添加新日记
