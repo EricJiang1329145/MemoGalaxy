@@ -33,7 +33,7 @@ struct EmotionEntry: Identifiable, Codable, Hashable {  // Add Hashable conforma
     let imageDataArray: [Data]? // 修改为多张图片数据数组
     var customColor: String?
     var customOpacity: Double = 0.8 // 新增透明度字段，默认最不透明
-    
+    var comments: [Comment] = []  // 新增评论数组（默认空）
     enum EmotionType: String, Codable, CaseIterable {
         case happy = "😊"
         case sad = "😢"
@@ -64,13 +64,46 @@ struct EmotionEntry: Identifiable, Codable, Hashable {  // Add Hashable conforma
         }
     }
 }
+// 新增评论数据模型（修复Hashable一致性）
+struct Comment: Identifiable, Codable, Hashable {  // 添加Hashable协议
+    let id: UUID          // 评论唯一标识（UUID符合Hashable）
+    let content: String   // 评论内容（String符合Hashable）
+    let timestamp: Date   // 评论时间（Date符合Hashable）
+}
+
+
 
 // MARK: - 数据管理
 class DiaryManager: ObservableObject {
     @Published var entries: [EmotionEntry] = []
     private let saveDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-    
+    func updateEntry(_ updatedEntry: EmotionEntry) {
+            guard let index = entries.firstIndex(where: { $0.id == updatedEntry.id }) else { return }
+            entries[index] = updatedEntry
+            saveData()  // 触发数据持久化
+        }
     init() {
+        loadData()
+        // 添加前台通知监听
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(loadDataOnForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+    }
+    
+    deinit {
+        // 移除通知监听
+        NotificationCenter.default.removeObserver(
+            self,
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+    }
+    
+    // 新增前台触发加载方法
+    @objc private func loadDataOnForeground() {
         loadData()
     }
     
@@ -175,7 +208,7 @@ struct ContentView: View {
             } detail: {
                 // 详情页（右侧）
                 if let entry = selectedEntry {
-                    DetailView(entry: entry)
+                    DetailView(entry: entry, manager: manager)  // 传递manager
                 } else {
                     ContentUnavailableView(
                         "选择日记查看详情",
@@ -275,6 +308,8 @@ struct EntryRow: View {
 // MARK: - 详情页
 struct DetailView: View {
     let entry: EmotionEntry
+    @ObservedObject var manager: DiaryManager  // 新增：接收数据管理器
+    @State private var newCommentText = ""      // 评论输入状态
     @State private var previewImage: UIImage?  // 全屏预览状态
     @State private var currentCarouselIndex = 0  // 轮播图当前索引
     
@@ -332,8 +367,6 @@ struct DetailView: View {
                     
                     // 卡片式内容区域
                     VStack(alignment: .leading, spacing: 15) {
-                        // 删除首图封面部分（原1203-1213行）
-                        
                         // 所有图片动态布局（保留原有逻辑）
                         if let imageDataArray = entry.imageDataArray, !imageDataArray.isEmpty {
                             if imageDataArray.count >= 3 {
@@ -396,6 +429,41 @@ struct DetailView: View {
                                 }
                             }
                         }
+                        VStack(alignment: .leading, spacing: 12) {
+                                                Text("添加评论")
+                                                    .font(.headline)
+                                                    .padding(.horizontal)
+                                                
+                                                HStack {
+                                                    ZStack(alignment: .topLeading) {
+                                                        if newCommentText.isEmpty {
+                                                            Text("写下你的评论...")
+                                                                .foregroundStyle(.secondary)
+                                                                .padding(.top, 8)
+                                                                .padding(.leading, 4)
+                                                        }
+                                                        
+                                                        TextEditor(text: $newCommentText)
+                                                            .frame(minHeight: 80)
+                                                            .background(
+                                                                RoundedRectangle(cornerRadius: 12)
+                                                                    .fill(Color(.systemBackground))
+                                                                    .shadow(color: .primary.opacity(0.1), radius: 3, x: 0, y: 1)
+                                                            )
+                                                    }
+                                                    
+                                                    Button(action: submitComment) {
+                                                        Text("发布")
+                                                            .padding(.horizontal, 12)
+                                                            .padding(.vertical, 8)
+                                                            .background(Color.accentColor)
+                                                            .foregroundColor(.white)
+                                                            .cornerRadius(8)
+                                                    }
+                                                    .disabled(newCommentText.isEmpty)
+                                                }
+                                                .padding(.horizontal)
+                                            }
                     }
                     .padding(20) // 增大外层间距
                     .background(
@@ -420,6 +488,35 @@ struct DetailView: View {
                 .edgesIgnoringSafeArea(.all)
         )
     }
+    private func submitComment() {
+            guard !newCommentText.isEmpty else { return }
+            
+            let newComment = Comment(
+                id: UUID(),
+                content: newCommentText,
+                timestamp: Date()
+            )
+            
+            var updatedEntry = entry
+            updatedEntry.comments.append(newComment)
+            manager.updateEntry(updatedEntry)
+            
+            newCommentText = ""  // 清空输入框
+        private func submitComment() {
+                guard !newCommentText.isEmpty else { return }
+                
+                let newComment = Comment(
+                    id: UUID(),
+                    content: newCommentText,
+                    timestamp: Date()
+                )
+                
+                var updatedEntry = entry
+                updatedEntry.comments.append(newComment)
+                manager.updateEntry(updatedEntry)
+                
+                newCommentText = ""  // 清空输入框
+            }}
 }
 
 // MARK: - 添加新日记
@@ -821,7 +918,8 @@ struct DetailView_Previews: PreviewProvider {
             customOpacity: 0.6
         )
         
-        DetailView(entry: travelEntry)
+        // 新增DiaryManager实例并传递给DetailView
+        DetailView(entry: travelEntry, manager: DiaryManager())
             .previewDisplayName("旅行日记预览")
     }
 }
