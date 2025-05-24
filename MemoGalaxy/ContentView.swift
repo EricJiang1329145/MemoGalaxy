@@ -310,9 +310,11 @@ struct EntryRow: View {
 struct DetailView: View {
     let entry: EmotionEntry
     @ObservedObject var manager: DiaryManager
-    @State private var newComment = ""      // 评论输入状态
-    @State private var previewImage: UIImage?  // 全屏预览状态
-    @State private var currentCarouselIndex = 0  // 轮播图当前索引
+    @State private var newComment = ""
+    @State private var previewImage: UIImage?
+    @State private var currentCarouselIndex = 0
+    @State private var showSendSuccess = false // 新增发送成功状态
+    
     private var currentEntry: EmotionEntry? {
         manager.entries.first { $0.id == entry.id }
     }
@@ -411,16 +413,19 @@ struct DetailView: View {
                                 }
                             }
                             
-                            // 正文内容
+                            // 正文内容卡片
                             Text(entry.content)
                                 .font(.body)
                                 .padding()
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color(.systemBackground))
+                                    RoundedRectangle(cornerRadius: 16) // 圆角从12调整为16
+                                        .fill(Color(.systemBackground).opacity(0.7))
                                         .shadow(color: .primary.opacity(0.1), radius: 6, x: 0, y: 2)
                                 )
+                                .padding(10)
+                            
+                            // 评论输入区域
                             VStack(alignment: .leading) {
                                 Text("评论")
                                     .font(.headline)
@@ -429,6 +434,12 @@ struct DetailView: View {
                                 HStack {
                                     TextField("写下你的评论...", text: $newComment)
                                         .textFieldStyle(.roundedBorder)
+                                        .overlay(
+                                            Image(systemName: "text.bubble")
+                                                .foregroundColor(.gray)
+                                                .padding(.trailing, 8)
+                                            , alignment: .trailing
+                                        )
                                     
                                     Button {
                                         guard !newComment.isEmpty, var updatedEntry = currentEntry else { return }
@@ -440,27 +451,59 @@ struct DetailView: View {
                                         )
                                         updatedEntry.comments.append(comment)
                                         manager.updateEntry(updatedEntry)
-                                        newComment = ""
+                                        
+                                        // 添加发送成功反馈
+                                        withAnimation(.easeInOut(duration: 0.3)) {
+                                            newComment = ""
+                                            showSendSuccess = true
+                                            
+                                            // 自动隐藏提示
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                                                showSendSuccess = false
+                                            }
+                                        }
                                     } label: {
                                         Image(systemName: "paperplane.fill")
+                                        .symbolEffect(.bounce, value: newComment.isEmpty)
+                                        .overlay(
+                                            Group {
+                                                if showSendSuccess {
+                                                    Image(systemName: "checkmark.circle.fill")
+                                                        .foregroundColor(.green)
+                                                        .scaleEffect(1.5)
+                                                        .transition(.scale.combined(with: .opacity))
+                                                        .symbolEffect(.bounce.up, options: .speed(3))
+                                                }
+                                            }
+                                        )
                                     }
                                     .disabled(newComment.isEmpty)
                                 }
                                 
                                 if let entry = currentEntry {
                                     ForEach(entry.comments) { comment in
-                                        VStack(alignment: .leading) {
+                                        HStack {
+                                        Spacer()
+                                        VStack(alignment: .trailing) {
                                             Text(comment.content)
-                                                .padding(8)
-                                                .background(Color.gray.opacity(0.1))
-                                                .cornerRadius(8)
+                                                .padding(10)
+                                                .background(Color.blue.opacity(0.1))
+                                                .cornerRadius(15)
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 15)
+                                                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                                                )
                                             
-                                            Text(comment.timestamp.formatted())
-                                                .font(.caption)
+                                            Text(chineseDateTimeFormatter.string(from: comment.timestamp))
+                                                .font(.caption2)
                                                 .foregroundColor(.gray)
                                         }
-                                        .padding(.vertical, 4)
-                                        .animation(.easeInOut, value: currentEntry?.comments.count)
+                                    }
+                                    .padding(.horizontal)
+                                    .transition(.asymmetric(
+                                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                                        removal: .opacity
+                                    ))
                                     }
                                 }
                             }
