@@ -54,7 +54,7 @@ struct EmotionEntry: Identifiable, Codable, Hashable {  // Add Hashable conforma
             case .angry: return .red
             case .love: return .pink
             case .calm: return .mint
-            // 新增颜色对应
+                // 新增颜色对应
             case .surprised: return .orange
             case .bored: return .gray
             case .excited: return .purple
@@ -78,11 +78,12 @@ class DiaryManager: ObservableObject {
     @Published var entries: [EmotionEntry] = []
     private let saveDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
     func updateEntry(_ updatedEntry: EmotionEntry) {
-            guard let index = entries.firstIndex(where: { $0.id == updatedEntry.id }) else { return }
-            entries[index] = updatedEntry
-            saveData()  // 触发数据持久化
-        }
+        guard let index = entries.firstIndex(where: { $0.id == updatedEntry.id }) else { return }
+        entries[index] = updatedEntry
+        saveData()  // 触发数据持久化
+    }
     init() {
+    
         loadData()
         // 添加前台通知监听
         NotificationCenter.default.addObserver(
@@ -112,7 +113,7 @@ class DiaryManager: ObservableObject {
         DispatchQueue.global().async { [weak self] in
             guard let self = self else { return }
             do {
-                let fileURLs = try FileManager.default.contentsOfDirectory(at: self.saveDirectory, 
+                let fileURLs = try FileManager.default.contentsOfDirectory(at: self.saveDirectory,
                                                                            includingPropertiesForKeys: nil)
                 let loadedEntries = fileURLs
                     .filter { $0.pathExtension == "json" }
@@ -165,7 +166,7 @@ struct ContentView: View {
     @State private var isLoading = true
     @State private var selectedEntry: EmotionEntry?
     @State private var searchText = ""
-
+    
     var body: some View {
         // iOS 18+ 推荐的标签栏结构
         TabView {
@@ -219,7 +220,7 @@ struct ContentView: View {
             .tabItem {
                 Label("日记", systemImage: "list.dash")
             }
-
+            
             // 设置标签页
             SettingsView()
                 .tabItem {
@@ -268,9 +269,9 @@ struct EntryRow: View {
                 .padding(5)
                 .background(
                     // 改为从字典获取颜色，无匹配时使用默认灰色
-                    entry.customColor != nil 
-                        ? Color(hex: entry.customColor!).opacity(entry.customOpacity) 
-                        : (emojiToColorMap[entry.emotion] ?? .gray).opacity(entry.customOpacity)
+                    entry.customColor != nil
+                    ? Color(hex: entry.customColor!).opacity(entry.customOpacity)
+                    : (emojiToColorMap[entry.emotion] ?? .gray).opacity(entry.customOpacity)
                 )
                 .clipShape(Circle())
                 .scaleEffect(isTapped ? 1.1 : 1)
@@ -308,7 +309,7 @@ struct EntryRow: View {
 // MARK: - 详情页
 struct DetailView: View {
     let entry: EmotionEntry
-    @ObservedObject var manager: DiaryManager  // 新增：接收数据管理器
+    @ObservedObject var manager: DiaryManager
     @State private var newComment = ""      // 评论输入状态
     @State private var previewImage: UIImage?  // 全屏预览状态
     @State private var currentCarouselIndex = 0  // 轮播图当前索引
@@ -324,184 +325,189 @@ struct DetailView: View {
     }
     
     var body: some View {
-        ScrollView {
-            ZStack {
-                // 主题色全屏背景（修复颜色获取）
-                (entry.customColor != nil ? 
-                    Color(hex: entry.customColor!) : 
-                    (emojiToColorMap[entry.emotion] ?? .gray))  // 从字典获取颜色
-                .opacity(0.1)
-                .edgesIgnoringSafeArea(.all)
-                
-                // 内容卡片
-                VStack(alignment: .leading, spacing: 20) {
-                    HStack(alignment: .top) {
-                        Text(entry.emotion)  // 已改为直接显示字符串
-                            .font(.system(size: 60, weight: .bold))
-                            .padding(10)
-                            .background(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [
-                                        entry.customColor != nil ? Color(hex: entry.customColor!) : (emojiToColorMap[entry.emotion] ?? .gray),  // 修复颜色
-                                        entry.customColor != nil ? Color(hex: entry.customColor!).opacity(0.7) : (emojiToColorMap[entry.emotion] ?? .gray).opacity(0.7)  // 修复颜色
-                                    ]),
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+        NavigationStack {
+            ScrollView {
+                ZStack {
+                    // 主题色全屏背景（修复颜色获取）
+                    (entry.customColor != nil ?
+                     Color(hex: entry.customColor!) :
+                        (emojiToColorMap[entry.emotion] ?? .gray))
+                    .opacity(0.1)
+                    .edgesIgnoringSafeArea(.all)
+                    
+                    // 内容卡片
+                    VStack(alignment: .leading, spacing: 20) {
+                        HStack(alignment: .top) {
+                            Text(entry.emotion)  // 已改为直接显示字符串
+                                .font(.system(size: 60, weight: .bold))
+                                .padding(10)
+                                .background(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [
+                                            entry.customColor != nil ? Color(hex: entry.customColor!) : (emojiToColorMap[entry.emotion] ?? .gray),  // 修复颜色
+                                            entry.customColor != nil ? Color(hex: entry.customColor!).opacity(0.7) : (emojiToColorMap[entry.emotion] ?? .gray).opacity(0.7)  // 修复颜色
+                                        ]),
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                    .opacity(entry.customOpacity)
                                 )
-                                .opacity(entry.customOpacity)
-                            )
-                            .clipShape(Circle())
-                        
-                        VStack(alignment: .leading) {
-                            // 替换为实际日记标题
-                            Text(entry.title)
-                                .font(.system(.title, design: .rounded))
-                                .bold()
-                                .padding(.bottom, 4)
+                                .clipShape(Circle())
                             
-                            // 调整时间显示位置
-                            Text(chineseDateTimeFormatter.string(from: entry.timestamp))
-                                .foregroundStyle(.secondary)
-                                .font(.footnote)
+                            VStack(alignment: .leading) {
+                                // 替换为实际日记标题
+                                Text(entry.title)
+                                    .font(.system(.title, design: .rounded))
+                                    .bold()
+                                    .padding(.bottom, 4)
+                                
+                                // 调整时间显示位置
+                                Text(chineseDateTimeFormatter.string(from: entry.timestamp))
+                                    .foregroundStyle(.secondary)
+                                    .font(.footnote)
+                            }
                         }
-                    }
-                    .padding(.bottom)
-                    
-                    // 卡片式内容区域
-                    VStack(alignment: .leading, spacing: 15) {
+                        .padding(.bottom)
                         
-                        // 所有图片动态布局（保留原有逻辑）
-                        if let imageDataArray = entry.imageDataArray, !imageDataArray.isEmpty {
-                            if imageDataArray.count >= 3 {
-                                // 轮播图（≥3张）
-                                TabView(selection: $currentCarouselIndex) {
-                                    ForEach(imageDataArray.indices, id: \.self) { index in
-                                        if let uiImage = UIImage(data: imageDataArray[index]) {
-                                            Image(uiImage: uiImage)
-                                                .resizable()
-                                                .scaledToFit()
-                                                .cornerRadius(12)
-                                                .tag(index)
-                                                .onTapGesture { previewImage = uiImage }
+                        // 卡片式内容区域
+                        VStack(alignment: .leading, spacing: 15) {
+                            
+                            // 所有图片动态布局（保留原有逻辑）
+                            if let imageDataArray = entry.imageDataArray, !imageDataArray.isEmpty {
+                                if imageDataArray.count >= 3 {
+                                    // 轮播图（≥3张）
+                                    TabView(selection: $currentCarouselIndex) {
+                                        ForEach(imageDataArray.indices, id: \.self) { index in
+                                            if let uiImage = UIImage(data: imageDataArray[index]) {
+                                                Image(uiImage: uiImage)
+                                                    .resizable()
+                                                    .scaledToFit()
+                                                    .cornerRadius(12)
+                                                    .tag(index)
+                                                    .onTapGesture { previewImage = uiImage }
+                                            }
                                         }
                                     }
-                                }
-                                .tabViewStyle(.page(indexDisplayMode: .always))
-                                .frame(height: 250)
-                            } else {
-                                // 网格布局（1-2张）
-                                LazyVGrid(columns: imageDataArray.count == 1 
-                                          ? [GridItem(.flexible())] 
-                                          : [GridItem(.flexible()), GridItem(.flexible())], 
-                                          spacing: 8) {
-                                    ForEach(imageDataArray.indices, id: \.self) { index in
-                                        if let uiImage = UIImage(data: imageDataArray[index]) {
-                                            Image(uiImage: uiImage)
-                                                .resizable()
-                                                .scaledToFill()
-                                                .frame(height: imageDataArray.count == 1 ? 250 : 150)
-                                                .clipped()
-                                                .cornerRadius(12)
-                                                .onTapGesture { previewImage = uiImage }
+                                    .tabViewStyle(.page(indexDisplayMode: .always))
+                                    .frame(height: 250)
+                                } else {
+                                    // 网格布局（1-2张）
+                                    LazyVGrid(columns: imageDataArray.count == 1
+                                              ? [GridItem(.flexible())]
+                                              : [GridItem(.flexible()), GridItem(.flexible())],
+                                              spacing: 8) {
+                                        ForEach(imageDataArray.indices, id: \.self) { index in
+                                            if let uiImage = UIImage(data: imageDataArray[index]) {
+                                                Image(uiImage: uiImage)
+                                                    .resizable()
+                                                    .scaledToFill()
+                                                    .frame(height: imageDataArray.count == 1 ? 250 : 150)
+                                                    .clipped()
+                                                    .cornerRadius(12)
+                                                    .onTapGesture { previewImage = uiImage }
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
-                        
-                        // 正文内容
-                        Text(entry.content)
-                            .font(.body)
+                            
+                            // 正文内容
+                            Text(entry.content)
+                                .font(.body)
+                                .padding()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color(.systemBackground))
+                                        .shadow(color: .primary.opacity(0.1), radius: 6, x: 0, y: 2)
+                                )
+                            VStack(alignment: .leading) {  
+                                Text("评论")
+                                    .font(.headline)
+                                    .padding(.top)
+                                
+                                HStack {
+                                    TextField("写下你的评论...", text: $newComment)
+                                        .textFieldStyle(.roundedBorder)
+                                    
+                                    Button {
+                                        guard !newComment.isEmpty, var updatedEntry = currentEntry else { return }
+                                        
+                                        let comment = Comment(
+                                            id: UUID(),
+                                            content: newComment,
+                                            timestamp: Date()
+                                        )
+                                        updatedEntry.comments.append(comment)
+                                        manager.updateEntry(updatedEntry)
+                                        newComment = ""
+                                    } label: {
+                                        Image(systemName: "paperplane.fill")
+                                    }
+                                    .disabled(newComment.isEmpty)
+                                }
+                                
+                                if let entry = currentEntry {
+                                    ForEach(entry.comments) { comment in
+                                        VStack(alignment: .leading) {
+                                            Text(comment.content)
+                                                .padding(8)
+                                                .background(Color.gray.opacity(0.1))
+                                                .cornerRadius(8)
+                                            
+                                            Text(comment.timestamp.formatted())
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+                                        }
+                                        .padding(.vertical, 4)
+                                        .animation(.easeInOut, value: currentEntry?.comments.count)
+                                    }
+                                }
+                            }
                             .padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color(.systemBackground))
-                                    .shadow(color: .primary.opacity(0.1), radius: 6, x: 0, y: 2)
-                            )
-                        VStack(alignment: .leading) {
-                Text("评论 (\(currentEntry?.comments.count ?? 0))")
-                    .font(.headline)
-                    .padding(.top)
-                
-                HStack {
-                    TextField("写下你的评论...", text: $newComment)
-                        .textFieldStyle(.roundedBorder)
-                    
-                    Button {
-                        guard !newComment.isEmpty, var updatedEntry = currentEntry else { return }
-                        
-                        let comment = Comment(
-                            id: UUID(),
-                            content: newComment,
-                            timestamp: Date()
-                        )
-                        updatedEntry.comments.append(comment)
-                        manager.updateEntry(updatedEntry)
-                        newComment = ""
-                    } label: {
-                        Image(systemName: "paperplane.fill")
-                    }
-                    .disabled(newComment.isEmpty)
-                }
-                
-                // 修改评论列表显示逻辑
-                if let entry = currentEntry {
-                    ForEach(entry.comments) { comment in
-                        VStack(alignment: .leading) {
-                            Text(comment.content)
-                                .padding(8)
-                                .background(Color.gray.opacity(0.1))
-                                .cornerRadius(8)
                             
-                            Text(comment.timestamp.formatted())
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        .padding(.vertical, 4)
-                        .transition(.opacity) // 添加过渡动画
-                    }
-                }
-            }
-                                    .padding()
-                        
-                        // 调整文末图片展示（跳过第一张）
-                        if let imageDataArray = entry.imageDataArray, imageDataArray.count > 1 {
-                            ForEach(1..<imageDataArray.count, id: \.self) { index in
-                                if let uiImage = UIImage(data: imageDataArray[index]) {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .cornerRadius(12)
-                                        .padding(.vertical, 8)
-                                }.animation(.easeInOut, value: currentEntry?.comments.count) // 添加列表变化动画
-        .navigationTitle(entry.title)
+                            
+                            // 调整文末图片展示（跳过第一张）
+                            if let imageDataArray = entry.imageDataArray, imageDataArray.count > 1 {
+                                ForEach(1..<imageDataArray.count, id: \.self) { index in
+                                    if let uiImage = UIImage(data: imageDataArray[index]) {
+                                        Image(uiImage: uiImage)
+                                            .resizable()
+                                            .scaledToFit()
+                                            .cornerRadius(12)
+                                            .padding(.vertical, 8)
+                                    }
+                                }
                             }
                         }
+                        // 将导航标题移到正确位置
                     }
-                    .padding(20) // 增大外层间距
-                    .background(
-                        RoundedRectangle(cornerRadius: 24) // 增大圆角半径
-                            .fill(Color(.systemBackground).opacity(0.5)) // 设置半透明
-                    )
-                    .padding(.horizontal)
                 }
-                .padding(.top, 40)
+                .padding(20) // 增大外层间距
+                .background(
+                    RoundedRectangle(cornerRadius: 24) // 增大圆角半径
+                        .fill(Color(.systemBackground).opacity(0.5)) // 设置半透明
+                )
+                .padding(.horizontal)
+                .navigationTitle(entry.title) // 将修饰符移动到 NavigationStack 的子视图上
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { /* 移除原有的 ToolbarItem */ }
+                .background(
+                    // 修复此处：使用emojiToColorMap替代emotion.color
+                    (entry.customColor != nil ?
+                     Color(hex: entry.customColor!) :
+                        (emojiToColorMap[entry.emotion] ?? .gray))
+                    .opacity(0.1)
+                )
             }
+            .padding(.top, 40)
         }
-        // 设置导航栏标题为日记标题
-        .navigationTitle(entry.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar { /* 移除原有的 ToolbarItem */ }
-        .background(
-            // 修复此处：使用emojiToColorMap替代emotion.color
-            (entry.customColor != nil ? 
-                Color(hex: entry.customColor!) : 
-                (emojiToColorMap[entry.emotion] ?? .gray))  // 从字典获取颜色
-                .opacity(0.05)
-                .edgesIgnoringSafeArea(.all)
-        )
     }
+    // 设置导航栏标题为日记标题
+    
+    
+    
+    
 }
 
 // MARK: - 添加新日记
@@ -514,7 +520,7 @@ let presetColors: [(String, String)] = [
     ("红牛蓝", "#0600EF"),       // Red Bull Racing Blue
     
     // 新增EVA主题色
-    ("EVA初号机紫", "#5F3D7A"), // Evangelion Unit-01 Purple 
+    ("EVA初号机紫", "#5F3D7A"), // Evangelion Unit-01 Purple
     ("EVA零号机黄", "#FFD700"), // Evangelion Unit-00 Yellow
     ("EVA二号机红", "#C41E3A"), // Evangelion Unit-02 Red
     ("NERV标志橙", "#FF6600"),  // NERV Organization Orange
@@ -530,7 +536,7 @@ let presetColors: [(String, String)] = [
     ("爱马仕橙", "#E8590C"),
     // 原有保留颜色
     ("红色", "#FF0000"),
-    ("绿色", "#00FF00"), 
+    ("绿色", "#00FF00"),
     ("蓝色", "#0000FF")
 ]
 
@@ -558,7 +564,7 @@ struct AddEntryView: View {
                     TextField("输入任意emoji", text: $selectedEmoji)
                         .textFieldStyle(.roundedBorder)
                         .font(.largeTitle)
-                        // 限制只能输入1个emoji（适配iOS 17+双参数闭包）
+                    // 限制只能输入1个emoji（适配iOS 17+双参数闭包）
                         .onChange(of: selectedEmoji) { oldValue, newValue in  // 修改此处：添加旧值参数
                             if newValue.count > 1 {
                                 selectedEmoji = String(newValue.prefix(1))
@@ -715,9 +721,9 @@ struct AddEntryView: View {
                         // 实时预览颜色+透明度效果（修复变量名）
                         Circle()
                             .fill(
-                                selectedColor != nil 
-                                    ? Color(hex: selectedColor!) 
-                                    : (emojiToColorMap[selectedEmoji] ?? .gray)  // 使用selectedEmoji获取颜色
+                                selectedColor != nil
+                                ? Color(hex: selectedColor!)
+                                : (emojiToColorMap[selectedEmoji] ?? .gray)  // 使用selectedEmoji获取颜色
                             )
                             .frame(width: 44, height: 44)
                             .opacity(selectedOpacity)
@@ -738,7 +744,7 @@ struct AddEntryView: View {
     }
     
     private func saveEntry() {
-        let imageDataArray = selectedImages.compactMap { 
+        let imageDataArray = selectedImages.compactMap {
             $0.jpegData(compressionQuality: imageCompression)  // 使用用户选择的压缩质量
         }
         let newEntry = EmotionEntry(
@@ -782,21 +788,21 @@ struct ColorCircle: View {
                         .padding(6)
                         .background(
                             Capsule()
-                                .fill(colorScheme == .dark ? 
-                                    Color.black.opacity(0.7) : 
-                                    Color.white.opacity(0.9)) // 适配深浅模式
+                                .fill(colorScheme == .dark ?
+                                      Color.black.opacity(0.7) :
+                                        Color.white.opacity(0.9)) // 适配深浅模式
                                 .shadow(radius: 2)
                         )
-                        .foregroundColor(colorScheme == .dark ? 
-                                       .white : .black) // 文字颜色适配
+                        .foregroundColor(colorScheme == .dark ?
+                            .white : .black) // 文字颜色适配
                         .offset(y: 32)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     
                     Image(systemName: "arrowtriangle.down.fill")
                         .font(.system(size: 8))
-                        .foregroundColor(colorScheme == .dark ? 
-                                       Color.black.opacity(0.7) : 
-                                       Color.white.opacity(0.9)) // 箭头颜色适配
+                        .foregroundColor(colorScheme == .dark ?
+                                         Color.black.opacity(0.7) :
+                                            Color.white.opacity(0.9)) // 箭头颜色适配
                         .offset(y: 24)
                 }
             }
@@ -896,8 +902,8 @@ struct DetailView_Previews: PreviewProvider {
             content: "清晨五点的河口湖，目睹'赤富士'奇观。\n登山注意事项：\n1. 携带充足饮用水\n2. 注意高原反应\n3. 遵守登山礼仪\n难忘的云海日出体验！",
             emotion: "🎉",
             timestamp: Date().addingTimeInterval(-259200),
-            imageDataArray: (1...3).compactMap { 
-                UIImage(systemName: ["mountain.2", "photo", "leaf"][$0-1])?.pngData() 
+            imageDataArray: (1...3).compactMap {
+                UIImage(systemName: ["mountain.2", "photo", "leaf"][$0-1])?.pngData()
             },
             customColor: "#FF6600",
             customOpacity: 0.6
