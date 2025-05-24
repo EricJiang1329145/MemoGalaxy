@@ -464,46 +464,25 @@ struct DetailView: View {
                                         }
                                     } label: {
                                         Image(systemName: "paperplane.fill")
-                                        .symbolEffect(.bounce, value: newComment.isEmpty)
-                                        .overlay(
-                                            Group {
-                                                if showSendSuccess {
-                                                    Image(systemName: "checkmark.circle.fill")
-                                                        .foregroundColor(.green)
-                                                        .scaleEffect(1.5)
-                                                        .transition(.scale.combined(with: .opacity))
-                                                        .symbolEffect(.bounce.up, options: .speed(3))
-                                                }
-                                            }
-                                        )
+                                            .symbolEffect(.bounce, value: newComment.isEmpty)
                                     }
                                     .disabled(newComment.isEmpty)
                                 }
                                 
                                 if let entry = currentEntry {
                                     ForEach(entry.comments) { comment in
-                                        HStack {
-                                        Spacer()
-                                        VStack(alignment: .trailing) {
+                                        VStack(alignment: .leading) {
                                             Text(comment.content)
-                                                .padding(10)
-                                                .background(Color.blue.opacity(0.1))
-                                                .cornerRadius(15)
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 15)
-                                                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                                                )
+                                                .padding(8)
+                                                .background(Color.gray.opacity(0.1))
+                                                .cornerRadius(8)
                                             
-                                            Text(chineseDateTimeFormatter.string(from: comment.timestamp))
-                                                .font(.caption2)
+                                            Text(chineseDateTimeFormatter.string(from: comment.timestamp)) // 改用中文时间格式
+                                                .font(.caption)
                                                 .foregroundColor(.gray)
                                         }
-                                    }
-                                    .padding(.horizontal)
-                                    .transition(.asymmetric(
-                                        insertion: .move(edge: .trailing).combined(with: .opacity),
-                                        removal: .opacity
-                                    ))
+                                        .padding(.vertical, 4)
+                                        .animation(.easeInOut, value: currentEntry?.comments.count)
                                     }
                                 }
                             }
