@@ -3,6 +3,8 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage("enableHaptic") private var enableHaptic = true
     @AppStorage("fontSize") private var fontSize = 16.0
+    // 新增OCR设置绑定
+    @AppStorage("disableOCR") private var disableOCR = false
     // 新增两个存储选项
     @AppStorage("isMultiImageLayout") private var isMultiImageLayout = true
     @AppStorage("isImageBeforeText") private var isImageBeforeText = true
@@ -23,6 +25,10 @@ struct SettingsView: View {
                     // 新增图片位置选项
                     Toggle("图片文前展示", isOn: $isImageBeforeText)
                         .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+                    Section("功能设置") {
+                        Toggle("关闭图片文字识别", isOn: $disableOCR)
+                            .toggleStyle(SwitchToggleStyle(tint: .blue))
+                    }
                 }
                 Section("数据管理") {
                     NavigationLink("备份与恢复") {

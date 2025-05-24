@@ -8,7 +8,7 @@
 // MemoGalaxy.swift
 import SwiftUI
 import PhotosUI
-
+import Vision
 // 新增emoji到颜色的映射字典（覆盖常用emoji）
 private let emojiToColorMap: [String: Color] = [
     "😊": .yellow,    // 开心
@@ -83,7 +83,7 @@ class DiaryManager: ObservableObject {
         saveData()  // 触发数据持久化
     }
     init() {
-    
+        
         loadData()
         // 添加前台通知监听
         NotificationCenter.default.addObserver(
@@ -421,7 +421,7 @@ struct DetailView: View {
                                         .fill(Color(.systemBackground))
                                         .shadow(color: .primary.opacity(0.1), radius: 6, x: 0, y: 2)
                                 )
-                            VStack(alignment: .leading) {  
+                            VStack(alignment: .leading) {
                                 Text("评论")
                                     .font(.headline)
                                     .padding(.top)
@@ -543,7 +543,7 @@ let presetColors: [(String, String)] = [
 struct AddEntryView: View {
     @ObservedObject var manager: DiaryManager
     @Environment(\.dismiss) var dismiss
-    
+    @AppStorage("disableOCR") private var disableOCR = false // 新增OCR设置同步
     @State private var title = ""
     @State private var content = ""
     @State private var selectedEmoji = "😊"  // 默认emoji
@@ -552,7 +552,8 @@ struct AddEntryView: View {
     @State private var selectedColor: String?
     @State private var selectedOpacity: Double = 0.8
     @State private var imageCompression: Double = 0.8  // 新增压缩质量状态
-    
+    @State private var ocrText: String = ""
+    @State private var showOCRAlert = false
     // 常用emoji快捷选项（可根据需求扩展）
     private let commonEmojis = ["😊", "😢", "😠", "🥰", "😌", "😲", "😴", "🎉", "🤔", "🙏"]
     
@@ -704,7 +705,23 @@ struct AddEntryView: View {
                         }
                     }
                 }
-                
+                Section("OCR识别") {
+                    if !disableOCR {
+                        Button("识别选中图片文字") {
+                            recognizeTextFromImages()
+                        }
+                        .disabled(selectedImages.isEmpty)
+                        
+                        if !ocrText.isEmpty {
+                            TextEditor(text: $ocrText)
+                                .frame(height: 100)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                )
+                        }
+                    }
+                }
                 Section("选择透明度") {
                     HStack {
                         Text("不透明度")
@@ -730,6 +747,7 @@ struct AddEntryView: View {
                     }
                 }
             }
+            
             .navigationTitle("新日记")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -740,9 +758,41 @@ struct AddEntryView: View {
                         .disabled(title.isEmpty || content.isEmpty)
                 }
             }
+            .alert("识别提示", isPresented: $showOCRAlert) {
+                Button("确定", role: .cancel) { }
+            } message: {
+                Text(ocrText.isEmpty ? "未识别到文字" : "已识别到\(ocrText.count)字")
+            }
         }
     }
-    
+    private func recognizeTextFromImages() {
+        // 系统原生Vision文字识别实现
+        guard let image = selectedImages.first else { return }
+        
+        let request = VNRecognizeTextRequest { request, error in
+            guard let observations = request.results as? [VNRecognizedTextObservation] else {
+                ocrText = ""
+                showOCRAlert = true
+                return
+            }
+            
+            let recognizedStrings = observations.compactMap { observation in
+                observation.topCandidates(1).first?.string
+            }
+            
+            DispatchQueue.main.async {
+                ocrText = recognizedStrings.joined(separator: "\n")
+                if !ocrText.isEmpty {
+                    content += "\n[识别结果]\n\(ocrText)"
+                }
+                showOCRAlert = true
+            }
+        }
+        request.recognitionLanguages = ["zh-Hans", "en-US"] // 中英文混合识别
+        
+        let handler = VNImageRequestHandler(cgImage: image.cgImage!)
+        try? handler.perform([request])
+    }
     private func saveEntry() {
         let imageDataArray = selectedImages.compactMap {
             $0.jpegData(compressionQuality: imageCompression)  // 使用用户选择的压缩质量
