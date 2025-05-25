@@ -471,19 +471,25 @@ struct DetailView: View {
                                 
                                 if let entry = currentEntry {
                                     ForEach(entry.comments) { comment in
-                                        VStack(alignment: .leading) {
-                                            Text(comment.content)
-                                                .padding(8)
-                                                .background(Color.gray.opacity(0.1))
-                                                .cornerRadius(8)
-                                            
-                                            Text(chineseDateTimeFormatter.string(from: comment.timestamp)) // 改用中文时间格式
-                                                .font(.caption)
-                                                .foregroundColor(.gray)
-                                        }
-                                        .padding(.vertical, 4)
-                                        .animation(.easeInOut, value: currentEntry?.comments.count)
-                                    }
+    VStack(alignment: .leading) {
+        Text(comment.content)
+            .font(.subheadline)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        
+        Text(chineseDateTimeFormatter.string(from: comment.timestamp))
+            .font(.caption2)
+            .foregroundColor(.secondary)
+    }
+    .padding(10)
+    .background(
+        RoundedRectangle(cornerRadius: 8)
+            .fill(Color(.systemBackground))
+            .shadow(color: .primary.opacity(0.1), radius: 3, x: 0, y: 2)
+    )
+    .padding(.horizontal, 8)
+    .padding(.vertical, 4)
+}
                                 }
                             }
                             .padding()
