@@ -4,6 +4,7 @@ import SwiftData
 struct ContentView: View {
     @Query(sort: \EmotionEntry.timestamp, order: .reverse) private var entries: [EmotionEntry]
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.appLocale) private var locale: Locale
     @State private var showingAddView = false
     @State private var entryToDelete: EmotionEntry?
     @State private var showDeleteConfirmation = false
@@ -33,13 +34,13 @@ struct ContentView: View {
                                 entryToDelete = entry
                                 showDeleteConfirmation = true
                             } label: {
-                                Label("删除", systemImage: "trash")
+                                Label(l("删除"), systemImage: "trash")
                             }
                         }
                     }
                 }
-                .navigationTitle("日记列表")
-                .searchable(text: $searchText, prompt: "搜索标题或内容")
+                .navigationTitle(l("日记列表"))
+                .searchable(text: $searchText, prompt: l("搜索标题或内容"))
                 .toolbar {
                     ToolbarItemGroup(placement: .navigationBarTrailing) {
                         Button {
@@ -53,9 +54,9 @@ struct ContentView: View {
                 .overlay {
                     if entries.isEmpty {
                         ContentUnavailableView(
-                            "开启你的星云之旅",
+                            l("开启你的星云之旅"),
                             systemImage: "moon.stars",
-                            description: Text("点击+号记录心情日记")
+                            description: Text(l("点击+号记录心情日记"))
                         )
                     }
                 }
@@ -64,23 +65,23 @@ struct ContentView: View {
                     DetailView(entry: entry)
                 } else {
                     ContentUnavailableView(
-                        "选择日记查看详情",
+                        l("选择日记查看详情"),
                         systemImage: "doc.text"
                     )
                 }
             }
             .tabItem {
-                Label("日记", systemImage: "list.dash")
+                Label(l("日记"), systemImage: "list.dash")
             }
 
             StatsView()
                 .tabItem {
-                    Label("统计", systemImage: "chart.bar.fill")
+                    Label(l("统计"), systemImage: "chart.bar.fill")
                 }
 
             SettingsView()
                 .tabItem {
-                    Label("设置", systemImage: "gearshape")
+                    Label(l("设置"), systemImage: "gearshape")
                 }
         }
         .sheet(isPresented: $showingAddView) {
@@ -92,24 +93,28 @@ struct ContentView: View {
             }
         }
         .confirmationDialog(
-            "确认删除",
+            l("确认删除"),
             isPresented: $showDeleteConfirmation,
             presenting: entryToDelete
         ) { entry in
-            Button("删除", role: .destructive) {
+            Button(l("删除"), role: .destructive) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     modelContext.delete(entry)
                 }
                 entryToDelete = nil
                 selectedEntry = nil
             }
-            Button("取消", role: .cancel) {
+            Button(l("取消"), role: .cancel) {
                 entryToDelete = nil
             }
         } message: { entry in
             let dateStr = entry.timestamp.formatted(date: .abbreviated, time: .omitted)
-            Text("确定要永久删除\(dateStr)的日记吗？")
+            Text(String(format: l("确定要永久删除%@的日记吗？"), dateStr))
         }
+    }
+
+    private func l(_ key: String) -> String {
+        key.localized(locale: locale)
     }
 }
 

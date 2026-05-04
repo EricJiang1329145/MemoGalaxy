@@ -192,6 +192,7 @@
 			knownRegions = (
 				en,
 				Base,
+				"zh-Hans",
 			);
 			mainGroup = E9FD96272DCF1489001C4989;
 			minimizedProjectReferenceProxies = 1;
@@ -396,7 +397,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"MemoGalaxy/Preview Content\"";
-				DEVELOPMENT_TEAM = XKG66VCX74;
+				DEVELOPMENT_TEAM = X6UY2FJ34S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -425,7 +426,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"MemoGalaxy/Preview Content\"";
-				DEVELOPMENT_TEAM = XKG66VCX74;
+				DEVELOPMENT_TEAM = X6UY2FJ34S;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

@@ -7,6 +7,7 @@ struct AddEntryView: View {
     var editEntry: EmotionEntry? = nil
     @Environment(\.dismiss) var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.appLocale) private var locale: Locale
     @AppStorage("disableOCR") private var disableOCR = false
 
     @State private var title = ""
@@ -23,8 +24,8 @@ struct AddEntryView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("你的心情") {
-                    TextField("输入任意emoji", text: $selectedEmoji)
+                Section {
+                    TextField(l("输入任意emoji"), text: $selectedEmoji)
                         .textFieldStyle(.roundedBorder)
                         .font(.largeTitle)
                         .onChange(of: selectedEmoji) { _, newValue in
@@ -46,12 +47,14 @@ struct AddEntryView: View {
                         }
                     }
                     .padding(.top, 8)
+                } header: {
+                    Text(l("你的心情"))
                 }
 
-                Section("选择主题颜色") {
+                Section {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack {
-                            ColorPicker("自定义颜色", selection: Binding(
+                            ColorPicker(l("自定义颜色"), selection: Binding(
                                 get: { Color(hex: selectedColor ?? "#FFFFFF") },
                                 set: { selectedColor = $0.toHex() }
                             ))
@@ -78,29 +81,33 @@ struct AddEntryView: View {
                         }
                         .padding(.vertical, 8)
                     }
+                } header: {
+                    Text(l("选择主题颜色"))
                 }
 
-                Section("图片设置") {
+                Section {
                     HStack {
-                        Text("图片质量")
+                        Text(l("图片质量"))
                         Slider(value: $imageCompression, in: 0.1...1, step: 0.1)
                         Text(String(format: "%.1f", imageCompression))
                     }
-                    Text("1.0为无损质量，0.1为高度压缩（文件更小）")
+                    Text(l("1.0为无损质量，0.1为高度压缩（文件更小）"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                } header: {
+                    Text(l("图片设置"))
                 }
 
                 Section {
                     VStack(alignment: .leading, spacing: 12) {
-                        TextField("输入日记标题", text: $title)
+                        TextField(l("输入日记标题"), text: $title)
                             .textFieldStyle(.roundedBorder)
 
                         Divider()
 
                         ZStack(alignment: .topLeading) {
                             if content.isEmpty {
-                                Text("请输入正文")
+                                Text(l("请输入正文"))
                                     .foregroundStyle(.secondary)
                                     .padding(.top, 8)
                                     .padding(.leading, 4)
@@ -111,9 +118,9 @@ struct AddEntryView: View {
                     }
                 }
 
-                Section("添加图片") {
+                Section {
                     PhotosPicker(
-                        "选择照片",
+                        l("选择照片"),
                         selection: $photoItems,
                         matching: .images,
                         photoLibrary: .shared()
@@ -146,11 +153,13 @@ struct AddEntryView: View {
                             }
                         }
                     }
+                } header: {
+                    Text(l("添加图片"))
                 }
 
-                Section("OCR识别") {
+                Section {
                     if !disableOCR {
-                        Button("识别选中图片文字") {
+                        Button(l("识别选中图片文字")) {
                             recognizeTextFromImages()
                         }
                         .disabled(selectedImages.isEmpty)
@@ -164,17 +173,19 @@ struct AddEntryView: View {
                                 )
                         }
                     }
+                } header: {
+                    Text(l("OCR识别"))
                 }
 
-                Section("选择透明度") {
+                Section {
                     HStack {
-                        Text("不透明度")
+                        Text(l("不透明度"))
                         Slider(value: $selectedOpacity, in: 0...1, step: 0.1)
                         Text(String(format: "%.1f", selectedOpacity))
                     }
 
                     HStack {
-                        Text("预览：")
+                        Text(l("预览："))
                         Circle()
                             .fill(
                                 selectedColor != nil
@@ -184,31 +195,37 @@ struct AddEntryView: View {
                             .frame(width: 44, height: 44)
                             .opacity(selectedOpacity)
                     }
+                } header: {
+                    Text(l("选择透明度"))
                 }
             }
-            .navigationTitle(editEntry == nil ? "新日记" : "编辑日记")
+            .navigationTitle(editEntry == nil ? l("新日记") : l("编辑日记"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button(l("取消")) { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Button("保存") { saveEntry() }
+                    Button(l("保存")) { saveEntry() }
                         .disabled(title.isEmpty || content.isEmpty)
                 }
             }
-            .alert("识别提示", isPresented: $showOCRAlert) {
-                Button("确定", role: .cancel) { }
+            .alert(l("识别提示"), isPresented: $showOCRAlert) {
+                Button(l("确定"), role: .cancel) { }
             } message: {
                 Group {
                     if ocrText.isEmpty {
-                        Text("未识别到文字")
+                        Text(l("未识别到文字"))
                     } else {
-                        Text("已识别到\(ocrText.count)字")
+                        Text(String(format: l("已识别到%lld字"), ocrText.count))
                     }
                 }
             }
             .onAppear(perform: prefillIfEditing)
         }
+    }
+
+    private func l(_ key: String) -> String {
+        key.localized(locale: locale)
     }
 
     private func prefillIfEditing() {
@@ -285,4 +302,9 @@ struct AddEntryView: View {
         }
         dismiss()
     }
+}
+
+#Preview {
+    AddEntryView()
+        .modelContainer(for: EmotionEntry.self, inMemory: true)
 }

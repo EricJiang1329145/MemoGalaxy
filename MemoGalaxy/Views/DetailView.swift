@@ -4,6 +4,7 @@ import SwiftData
 struct DetailView: View {
     let entry: EmotionEntry
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.appLocale) private var locale: Locale
     private let themeColor: Color
     @State private var newComment = ""
     @State private var previewImage: UIImage?
@@ -155,12 +156,12 @@ struct DetailView: View {
 
     private var commentSection: some View {
         VStack(alignment: .leading) {
-            Text("评论")
+            Text(l("评论"))
                 .font(.headline)
                 .padding(.top)
 
             HStack {
-                TextField("写下你的评论...", text: $newComment)
+                TextField(l("写下你的评论..."), text: $newComment)
                     .textFieldStyle(.roundedBorder)
                     .overlay(
                         Image(systemName: "text.bubble")
@@ -210,7 +211,7 @@ struct DetailView: View {
             }
 
             if showSendSuccess {
-                Text("评论已发送")
+                Text(l("评论已发送"))
                     .font(.caption)
                     .foregroundColor(.green)
                     .transition(.opacity)
@@ -218,4 +219,19 @@ struct DetailView: View {
         }
         .padding()
     }
+
+    private func l(_ key: String) -> String {
+        key.localized(locale: locale)
+    }
+}
+
+#Preview {
+    let entry = EmotionEntry(
+        title: "测试日记",
+        content: "这是一条测试日记内容。",
+        emotion: "😊",
+        timestamp: Date()
+    )
+    DetailView(entry: entry)
+        .modelContainer(for: EmotionEntry.self, inMemory: true)
 }

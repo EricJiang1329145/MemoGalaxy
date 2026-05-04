@@ -7,33 +7,51 @@ struct SettingsView: View {
     @AppStorage("disableOCR") private var disableOCR = false
     @AppStorage("isMultiImageLayout") private var isMultiImageLayout = true
     @AppStorage("isImageBeforeText") private var isImageBeforeText = true
+    @AppStorage("appLanguage") private var appLanguage = "system"
+    @Environment(\.appLocale) private var locale: Locale
 
     var body: some View {
         NavigationStack {
             Form {
                 if UIDevice.current.userInterfaceIdiom == .pad {
-                    Section("iPad专属设置") {
-                        Toggle("多栏详情视图", isOn: .constant(true))
+                    Section {
+                        Toggle(localized("多栏详情视图"), isOn: .constant(true))
                             .disabled(true)
+                    } header: {
+                        Text(localized("iPad专属设置"))
                     }
                 }
 
-                Section("界面设置") {
-                    Stepper("字体大小: \(Int(fontSize))", value: $fontSize, in: 12...24)
-                    Toggle("触感反馈", isOn: $enableHaptic)
-                    Toggle("多图叠加展示", isOn: $isMultiImageLayout)
-                    Toggle("图片文前展示", isOn: $isImageBeforeText)
+                Section {
+                    Stepper(String(format: localized("字体大小: %lld"), Int(fontSize)), value: $fontSize, in: 12...24)
+                    Toggle(localized("触感反馈"), isOn: $enableHaptic)
+                    Toggle(localized("多图叠加展示"), isOn: $isMultiImageLayout)
+                    Toggle(localized("图片文前展示"), isOn: $isImageBeforeText)
+
+                    Picker(localized("语言"), selection: $appLanguage) {
+                        Text("跟随系统").tag("system")
+                        Text("简体中文").tag("zh-Hans")
+                        Text("English").tag("en")
+                    }
+                } header: {
+                    Text(localized("界面设置"))
                 }
 
-                Section("功能设置") {
-                    Toggle("关闭图片文字识别", isOn: $disableOCR)
+                Section {
+                    Toggle(localized("关闭图片文字识别"), isOn: $disableOCR)
                         .tint(.blue)
+                } header: {
+                    Text(localized("功能设置"))
                 }
 
-                Section("数据管理") {
-                    NavigationLink("备份与恢复") {
+                Section {
+                    NavigationLink {
                         BackupView()
+                    } label: {
+                        Text(localized("备份与恢复"))
                     }
+                } header: {
+                    Text(localized("数据管理"))
                 }
             }
             .scrollContentBackground(.hidden)
@@ -43,7 +61,7 @@ struct SettingsView: View {
                     .padding(.horizontal, 8)
             )
             .padding(.top, 12)
-            .navigationTitle("设置")
+            .navigationTitle(localized("设置"))
             .navigationBarTitleDisplayMode(.inline)
         }
         .background(
@@ -55,11 +73,16 @@ struct SettingsView: View {
             .ignoresSafeArea()
         )
     }
+
+    private func localized(_ key: String) -> String {
+        key.localized(locale: locale)
+    }
 }
 
 struct BackupView: View {
     @Query(sort: \EmotionEntry.timestamp, order: .reverse) private var entries: [EmotionEntry]
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.appLocale) private var locale: Locale
     @State private var showImporter = false
     @State private var importMessage: String?
     @State private var showImportAlert = false
@@ -73,44 +96,44 @@ struct BackupView: View {
         List {
             Section {
                 if let data = exportData {
-                    ShareLink(item: data, preview: SharePreview("MemoGalaxy备份", image: Image(systemName: "doc.text"))) {
-                        Label("导出全部日记 (JSON)", systemImage: "square.and.arrow.up")
+                    ShareLink(item: data, preview: SharePreview(localized("MemoGalaxy备份"), image: Image(systemName: "doc.text"))) {
+                        Label(localized("导出全部日记 (JSON)"), systemImage: "square.and.arrow.up")
                     }
                 } else {
-                    Label("暂无数据可导出", systemImage: "square.and.arrow.up")
+                    Label(localized("暂无数据可导出"), systemImage: "square.and.arrow.up")
                         .foregroundStyle(.secondary)
                 }
-            } footer: {
-                Text("导出为JSON文件，可通过AirDrop、邮件等方式分享")
+            } header: {
+                Text(localized("导出为JSON文件，可通过AirDrop、邮件等方式分享"))
             }
 
             Section {
                 Button {
                     showImporter = true
                 } label: {
-                    Label("导入日记备份", systemImage: "square.and.arrow.down")
+                    Label(localized("导入日记备份"), systemImage: "square.and.arrow.down")
                 }
-            } footer: {
-                Text("从JSON备份文件恢复日记，已存在的条目不会重复导入")
+            } header: {
+                Text(localized("从JSON备份文件恢复日记，已存在的条目不会重复导入"))
             }
         }
-        .navigationTitle("备份与恢复")
+        .navigationTitle(localized("备份与恢复"))
         .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json]) { result in
             switch result {
             case .success(let url):
                 guard let data = try? Data(contentsOf: url) else {
-                    importMessage = "文件读取失败"
+                    importMessage = localized("文件读取失败")
                     showImportAlert = true
                     return
                 }
                 importFromJSON(data)
             case .failure(let error):
-                importMessage = String(localized: "导入失败: \(error.localizedDescription)")
+                importMessage = String(format: localized("导入失败: %@"), error.localizedDescription)
                 showImportAlert = true
             }
         }
-        .alert("导入结果", isPresented: $showImportAlert) {
-            Button("确定", role: .cancel) { }
+        .alert(localized("导入结果"), isPresented: $showImportAlert) {
+            Button(localized("确定"), role: .cancel) { }
         } message: {
             Text(importMessage ?? "")
         }
@@ -118,7 +141,7 @@ struct BackupView: View {
 
     private func importFromJSON(_ data: Data) {
         guard let transfers = try? JSONDecoder().decode([EmotionEntryTransfer].self, from: data) else {
-            importMessage = "JSON解析失败"
+            importMessage = localized("JSON解析失败")
             showImportAlert = true
             return
         }
@@ -129,8 +152,12 @@ struct BackupView: View {
             modelContext.insert(entry)
             imported += 1
         }
-        importMessage = String(localized: "导入完成：新增\(imported)条日记")
+        importMessage = String(format: localized("导入完成：新增%lld条日记"), imported)
         showImportAlert = true
+    }
+
+    private func localized(_ key: String) -> String {
+        key.localized(locale: locale)
     }
 }
 
@@ -182,4 +209,8 @@ struct DiaryCommentTransfer: Codable {
         self.content = comment.content
         self.timestamp = comment.timestamp
     }
+}
+
+#Preview {
+    SettingsView()
 }

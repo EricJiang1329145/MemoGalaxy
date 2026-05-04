@@ -4,6 +4,7 @@ import Charts
 
 struct StatsView: View {
     @Query(sort: \EmotionEntry.timestamp, order: .reverse) private var entries: [EmotionEntry]
+    @Environment(\.appLocale) private var locale: Locale
 
     private var emojiCounts: [(emoji: String, count: Int)] {
         let grouped = Dictionary(grouping: entries, by: \.emotion)
@@ -28,9 +29,9 @@ struct StatsView: View {
         NavigationStack {
             if entries.isEmpty {
                 ContentUnavailableView(
-                    "还没有日记数据",
+                    l("还没有日记数据"),
                     systemImage: "chart.bar.xaxis",
-                    description: Text("记录心情后即可查看统计")
+                    description: Text(l("记录心情后即可查看统计"))
                 )
             } else {
                 ScrollView {
@@ -41,14 +42,14 @@ struct StatsView: View {
                     }
                     .padding()
                 }
-                .navigationTitle("心情统计")
+                .navigationTitle(l("心情统计"))
             }
         }
     }
 
     private var emojiDistributionCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("情绪分布")
+            Text(l("情绪分布"))
                 .font(.headline)
 
             Chart {
@@ -89,11 +90,11 @@ struct StatsView: View {
 
     private var weeklyTrendCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("周趋势（最近12周）")
+            Text(l("周趋势（最近12周）"))
                 .font(.headline)
 
             if weeklyCounts.isEmpty {
-                Text("暂无足够数据")
+                Text(l("暂无足够数据"))
                     .foregroundStyle(.secondary)
                     .font(.caption)
             } else {
@@ -119,7 +120,7 @@ struct StatsView: View {
 
     private var recentMoodCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("最近心情")
+            Text(l("最近心情"))
                 .font(.headline)
 
             ForEach(entries.prefix(10)) { entry in
@@ -145,4 +146,13 @@ struct StatsView: View {
                 .shadow(color: .primary.opacity(0.1), radius: 4)
         )
     }
+
+    private func l(_ key: String) -> String {
+        key.localized(locale: locale)
+    }
+}
+
+#Preview {
+    StatsView()
+        .modelContainer(for: EmotionEntry.self, inMemory: true)
 }
