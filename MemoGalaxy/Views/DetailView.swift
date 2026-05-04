@@ -52,10 +52,18 @@ struct DetailView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            showingEditSheet = true
-                        } label: {
-                            Image(systemName: "pencil")
+                        HStack(spacing: 16) {
+                            Button {
+                                shareDiary()
+                            } label: {
+                                Image(systemName: "square.and.arrow.up")
+                            }
+
+                            Button {
+                                showingEditSheet = true
+                            } label: {
+                                Image(systemName: "pencil")
+                            }
                         }
                     }
                 }
@@ -222,6 +230,24 @@ struct DetailView: View {
 
     private func l(_ key: String) -> String {
         key.localized(locale: locale)
+    }
+
+    private func shareDiary() {
+        let shareView = DiaryShareView(entry: entry, fontSize: fontSize)
+        let renderer = ImageRenderer(content: shareView)
+        renderer.scale = UIScreen.main.scale
+        guard let image = renderer.uiImage else { return }
+
+        let activityVC = UIActivityViewController(
+            activityItems: [image],
+            applicationActivities: nil
+        )
+
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first,
+           let rootVC = window.rootViewController {
+            rootVC.present(activityVC, animated: true)
+        }
     }
 }
 
